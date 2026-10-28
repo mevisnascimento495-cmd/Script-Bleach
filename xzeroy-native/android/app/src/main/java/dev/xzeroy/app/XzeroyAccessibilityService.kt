@@ -26,21 +26,43 @@ class XzeroyAccessibilityService : AccessibilityService() {
         override fun run() {
             val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
             val activePackage = rootInActiveWindow?.packageName?.toString()
-            val isMinecraft = activePackage == "com.mojang.minecraftpe"
+            val isMinecraft = activePackage == MINECRAFT_PACKAGE
             val now = SystemClock.uptimeMillis()
+
+            // Keep the persisted foreground state current even if no new window event arrives.
+            if (activePackage != null) {
+                prefs.edit().putBoolean("minecraft_foreground", isMinecraft).apply()
+            }
 
             if (isMinecraft && !gestureInProgress) {
                 val clickEnabled = prefs.getBoolean("auto_clicker", false)
                 val jumpEnabled = prefs.getBoolean("auto_jump", false)
                 val clickInterval = prefs.getInt("click_interval", 180).coerceIn(120, 2000)
                 val jumpInterval = prefs.getInt("jump_interval", 700).coerceIn(250, 5000)
+                val clickDue = clickEnabled && now - lastClickAt >= clickInterval
+                val jumpDue = jumpEnabled && now - lastJumpAt >= jumpInterval
 
-                if (clickEnabled && now - lastClickAt >= clickInterval) {
-                    lastClickAt = now
-                    tapPercent(prefs.getInt("click_x", 82), prefs.getInt("click_y", 72))
-                } else if (jumpEnabled && now - lastJumpAt >= jumpInterval) {
-                    lastJumpAt = now
-                    tapPercent(prefs.getInt("jump_x", 92), prefs.getInt("jump_y", 55))
+                // If both are due, execute the action that has waited the longest.
+                when {
+                    clickDue && jumpDue -> {
+                        val clickOverdue = now - lastClickAt - clickInterval
+                        val jumpOverdue = now - lastJumpAt - jumpInterval
+                        if (clickOverdue >= jumpOverdue) {
+                            lastClickAt = now
+                            tapPercent(prefs.getInt("click_x", 82), prefs.getInt("click_y", 72))
+                        } else {
+                            lastJumpAt = now
+                            tapPercent(prefs.getInt("jump_x", 92), prefs.getInt("jump_y", 55))
+                        }
+                    }
+                    clickDue -> {
+                        lastClickAt = now
+                        tapPercent(prefs.getInt("click_x", 82), prefs.getInt("click_y", 72))
+                    }
+                    jumpDue -> {
+                        lastJumpAt = now
+                        tapPercent(prefs.getInt("jump_x", 92), prefs.getInt("jump_y", 55))
+                    }
                 }
             }
             refreshChip(prefs.getBoolean("auto_clicker", false), prefs.getBoolean("auto_jump", false))
@@ -51,13 +73,16 @@ class XzeroyAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         showChip()
+        handler.removeCallbacks(ticker)
         handler.post(ticker)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val isMinecraft = event?.packageName?.toString() == "com.mojang.minecraftpe"
+        val packageName = event?.packageName?.toString() ?: return
         getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
-            .edit().putBoolean("minecraft_foreground", isMinecraft).apply()
+            .edit()
+            .putBoolean("minecraft_foreground", packageName == MINECRAFT_PACKAGE)
+            .apply()
     }
 
     override fun onInterrupt() {
@@ -83,9 +108,12 @@ class XzeroyAccessibilityService : AccessibilityService() {
         val yPercent = yPercentRaw.coerceIn(0, 100)
         val x = (metrics.widthPixels * xPercent / 100f).coerceIn(1f, (metrics.widthPixels - 1).toFloat())
         val y = (metrics.heightPixels * yPercent / 100f).coerceIn(1f, (metrics.heightPixels - 1).toFloat())
-        val path = Path().apply { moveTo(x, y) }
+        val path = Path().apply {
+            moveTo(x, y)
+            lineTo((x + 0.5f).coerceAtMost(metrics.widthPixels - 1f), (y + 0.5f).coerceAtMost(metrics.heightPixels - 1f))
+        }
         val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 45))
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
             .build()
 
         gestureInProgress = true
@@ -93,6 +121,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 gestureInProgress = false
             }
+
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 gestureInProgress = false
             }
@@ -118,18 +147,22 @@ class XzeroyAccessibilityService : AccessibilityService() {
                 val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
                 val enabled = !prefs.getBoolean("auto_clicker", false)
                 prefs.edit().putBoolean("auto_clicker", enabled).apply()
-                Toast.makeText(this@XzeroyAccessibilityService,
+                Toast.makeText(
+                    this@XzeroyAccessibilityService,
                     if (enabled) "XZeroy Auto Clicker ligado" else "XZeroy Auto Clicker desligado",
-                    Toast.LENGTH_SHORT).show()
+                    Toast.LENGTH_SHORT
+                ).show()
                 refreshChip(enabled, prefs.getBoolean("auto_jump", false))
             }
             setOnLongClickListener {
                 val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
                 val enabled = !prefs.getBoolean("auto_jump", false)
                 prefs.edit().putBoolean("auto_jump", enabled).apply()
-                Toast.makeText(this@XzeroyAccessibilityService,
+                Toast.makeText(
+                    this@XzeroyAccessibilityService,
                     if (enabled) "XZeroy Auto Jump ligado" else "XZeroy Auto Jump desligado",
-                    Toast.LENGTH_SHORT).show()
+                    Toast.LENGTH_SHORT
+                ).show()
                 refreshChip(prefs.getBoolean("auto_clicker", false), enabled)
                 true
             }
@@ -153,5 +186,9 @@ class XzeroyAccessibilityService : AccessibilityService() {
     private fun refreshChip(clickEnabled: Boolean, jumpEnabled: Boolean) {
         chip?.text = "XZeroy  AC:" + (if (clickEnabled) "ON" else "OFF") +
             "  AJ:" + (if (jumpEnabled) "ON" else "OFF")
+    }
+
+    companion object {
+        private const val MINECRAFT_PACKAGE = "com.mojang.minecraftpe"
     }
 }
