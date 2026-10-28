@@ -1,12 +1,12 @@
-# XZeroy Native — app Android em desenvolvimento
+# XZeroy Native — XZeroy cheat client para Android (em desenvolvimento)
 
-Este diretório inicia uma versão Android própria do XZeroy, separada do UserScript ProtoHax que existe na raiz do repositório.
+Este diretório inicia uma versão Android própria do XZeroy cheat client, separada do UserScript ProtoHax que existe na raiz do repositório. A proposta é manter módulos de cheat/client-side independentes, com interface própria; os recursos que dependem do estado interno do jogo ainda precisam de uma integração técnica específica.
 
 ## Estado atual
 
 O app inclui uma interface Android e um serviço de Acessibilidade opcional para toques configuráveis. O serviço só tenta executar Auto Clicker/Auto Jump se o app em primeiro plano for Minecraft Bedrock para Android (com.mojang.minecraftpe). O usuário precisa ativar o serviço manualmente nas configurações do Android e definir coordenadas que correspondam ao layout de controles do jogo.
 
-Isto não é um client de injeção de memória. ESP, leitura real de coordenadas, extensão de alcance, alteração de atributos e privilégios administrativos ainda não estão implementados. As rotas administrativas do bridge continuam retornando HTTP 501 até haver um adaptador de servidor compatível e testado.
+Isto não é um client de injeção de memória. ESP, leitura real de coordenadas, extensão de alcance, alteração de atributos e privilégios administrativos ainda não estão implementados. O projeto continua sendo tratado como um cheat client; isso não significa que o APK, sozinho, consiga impor permissões ao servidor. As rotas administrativas do bridge continuam retornando HTTP 501 até haver um adaptador de servidor compatível e testado.
 
 ## Estrutura
 - android/: app Android nativo em Kotlin.
