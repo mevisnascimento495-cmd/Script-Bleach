@@ -18,3 +18,10 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+      - name: Upload compiled XZeroy
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZeroy
+          path: dist/XZeroy.js
+          if-no-files-found: error
+          retention-days: 30
