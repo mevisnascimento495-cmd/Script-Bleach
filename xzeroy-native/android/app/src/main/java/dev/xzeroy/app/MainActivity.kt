@@ -17,157 +17,152 @@ import android.widget.TextView
 
 class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("xzeroy_settings", MODE_PRIVATE) }
-    private lateinit var status: TextView
-    private lateinit var clickerButton: Button
-    private lateinit var jumpButton: Button
-    private lateinit var clickX: EditText
-    private lateinit var clickY: EditText
-    private lateinit var clickInterval: EditText
-    private lateinit var jumpX: EditText
-    private lateinit var jumpY: EditText
-    private lateinit var jumpInterval: EditText
+    private lateinit var body: LinearLayout
+    private lateinit var connectionStatus: TextView
+    private var currentTab = "Início"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(16, 18, 26)
-        window.navigationBarColor = Color.rgb(16, 18, 26)
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 28, 24, 24)
-            setBackgroundColor(Color.rgb(20, 23, 33))
+        window.statusBarColor = Color.rgb(12, 15, 25)
+        window.navigationBarColor = Color.rgb(12, 15, 25)
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(16, 20, 32)) }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(22, 22, 22, 18); setBackgroundColor(Color.rgb(22, 29, 48))
         }
-        content.addView(TextView(this).apply {
-            text = "XZeroy"
-            textSize = 30f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
+        header.addView(TextView(this).apply {
+            text = "XZEROY"; textSize = 27f; setTextColor(Color.rgb(130, 165, 255)); gravity = Gravity.CENTER_VERTICAL
+            setTypeface(null, android.graphics.Typeface.BOLD)
         })
-        content.addView(TextView(this).apply {
-            text = "Bedrock • controle por Acessibilidade"
-            textSize = 14f
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 20)
+        header.addView(TextView(this).apply {
+            text = "BEDROCK CHEAT CLIENT • BETA"; textSize = 11f; setTextColor(Color.LTGRAY); setPadding(0, 3, 0, 0)
         })
-        status = TextView(this).apply {
-            textSize = 14f
-            setTextColor(Color.rgb(255, 210, 120))
-            setPadding(0, 8, 0, 16)
+        connectionStatus = TextView(this).apply { textSize = 13f; setTextColor(Color.rgb(255, 211, 128)); setPadding(0, 12, 0, 0) }
+        header.addView(connectionStatus)
+        root.addView(header)
+        val scroll = ScrollView(this)
+        body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(18, 12, 18, 22) }
+        scroll.addView(body)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(4, 7, 4, 7); setBackgroundColor(Color.rgb(22, 29, 48)) }
+        listOf("Início", "Módulos", "Conta", "Ajustes").forEach { tab ->
+            nav.addView(Button(this).apply {
+                text = tab; textSize = 11f; isAllCaps = false
+                setOnClickListener { currentTab = tab; renderTab() }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
-        content.addView(status)
+        root.addView(nav)
+        setContentView(root)
+        renderTab()
+    }
 
-        content.addView(sectionTitle("Auto Clicker"))
-        clickX = numberField("Ponto X (%) — 0 a 100", prefs.getInt("click_x", 82))
-        clickY = numberField("Ponto Y (%) — 0 a 100", prefs.getInt("click_y", 72))
-        clickInterval = numberField("Intervalo (ms) — mínimo 120", prefs.getInt("click_interval", 180))
-        content.addView(clickX)
-        content.addView(clickY)
-        content.addView(clickInterval)
+    override fun onResume() { super.onResume(); if (::body.isInitialized) renderTab() }
 
-        content.addView(sectionTitle("Auto Jump"))
-        jumpX = numberField("Pulo X (%) — 0 a 100", prefs.getInt("jump_x", 92))
-        jumpY = numberField("Pulo Y (%) — 0 a 100", prefs.getInt("jump_y", 55))
-        jumpInterval = numberField("Intervalo do pulo (ms)", prefs.getInt("jump_interval", 700))
-        content.addView(jumpX)
-        content.addView(jumpY)
-        content.addView(jumpInterval)
-
-        content.addView(Button(this).apply {
-            text = "Salvar coordenadas e intervalos"
-            setOnClickListener { saveSettings() }
-        })
-        clickerButton = Button(this).apply {
-            setOnClickListener {
-                toggle("auto_clicker")
-                refreshUi()
+    private fun renderTab() {
+        body.removeAllViews()
+        val serviceOn = isAccessibilityServiceEnabled()
+        val minecraftInstalled = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe") != null
+        connectionStatus.text = when {
+            !serviceOn -> "SERVIÇO: desligado • Ative em Ajustes"
+            prefs.getBoolean("minecraft_foreground", false) -> "MINECRAFT: detectado em primeiro plano"
+            minecraftInstalled -> "MINECRAFT: instalado • ainda não conectado"
+            else -> "MINECRAFT: não encontrado neste aparelho"
+        }
+        when (currentTab) {
+            "Início" -> {
+                title("Painel")
+                card("Conexão com Minecraft", "O XZeroy é um app separado. Abra o Bedrock pelo botão abaixo; o serviço detecta quando o jogo está em primeiro plano.") {
+                    actionButton("Abrir Minecraft Bedrock") {
+                        val intent = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+                        if (intent != null) startActivity(intent) else message("Minecraft Bedrock não foi encontrado neste aparelho.")
+                    }
+                }
+                card("Estado dos módulos", "Auto Clicker: " + onOff("auto_clicker") + "\nAuto Jump: " + onOff("auto_jump") + "\n\nConfigure os módulos na aba Módulos.")
+                card("Versão beta", "Ainda não existe integração interna com o jogo. ESP, leitura de entidades, conta Microsoft e funções administrativas não estão implementados.")
+            }
+            "Módulos" -> {
+                title("Módulos")
+                card("Auto Clicker", "Envia toques em posição fixa quando Minecraft está em primeiro plano. Não detecta inimigos.") {
+                    val x = field("Coordenada X (%)", prefs.getInt("click_x", 82))
+                    val y = field("Coordenada Y (%)", prefs.getInt("click_y", 72))
+                    val interval = field("Intervalo em ms (120–2000)", prefs.getInt("click_interval", 180))
+                    addView(x); addView(y); addView(interval)
+                    actionButton("Salvar Auto Clicker") {
+                        prefs.edit().putInt("click_x", number(x,82,0,100)).putInt("click_y",number(y,72,0,100))
+                            .putInt("click_interval",number(interval,180,120,2000)).apply()
+                        message("Configuração salva.")
+                    }
+                    actionButton("Alternar Auto Clicker (" + onOff("auto_clicker") + ")") { toggle("auto_clicker"); renderTab() }
+                }
+                card("Auto Jump", "Envia toques em posição fixa; depende do layout de controles do jogo.") {
+                    val x = field("Coordenada X (%)", prefs.getInt("jump_x", 92))
+                    val y = field("Coordenada Y (%)", prefs.getInt("jump_y", 55))
+                    val interval = field("Intervalo em ms (250–5000)", prefs.getInt("jump_interval", 700))
+                    addView(x); addView(y); addView(interval)
+                    actionButton("Salvar Auto Jump") {
+                        prefs.edit().putInt("jump_x",number(x,92,0,100)).putInt("jump_y",number(y,55,0,100))
+                            .putInt("jump_interval",number(interval,700,250,5000)).apply()
+                        message("Configuração salva.")
+                    }
+                    actionButton("Alternar Auto Jump (" + onOff("auto_jump") + ")") { toggle("auto_jump"); renderTab() }
+                }
+                listOf("ESP", "Reach / alcance", "Player / entidades", "Inventário", "Admin de servidor").forEach { module ->
+                    card(module, "Ainda não implementado nesta versão. O painel não simula que este módulo já funciona.")
+                }
+            }
+            "Conta" -> {
+                title("Conta")
+                card("Conta Microsoft / Minecraft", "O login oficial ainda não foi integrado. Esta versão não pede nem armazena sua senha Microsoft. A integração futura deve usar o fluxo oficial de autenticação.") {
+                    actionButton("Login Microsoft — em desenvolvimento") { message("Login oficial ainda não disponível nesta versão.") }
+                    actionButton("Estado da conta") { message("Nenhuma conta vinculada ao XZeroy.") }
+                }
+                card("Sessão", "Conta vinculada: não\nGamertag: —\nToken: não armazenado")
+            }
+            "Ajustes" -> {
+                title("Ajustes")
+                card("Integração Android", "O serviço é opcional e precisa ser ativado manualmente. Ele permite toques configurados; não injeta código no Minecraft.") {
+                    actionButton("Abrir Acessibilidade do Android") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                    actionButton("Desativar todos os módulos") {
+                        prefs.edit().putBoolean("auto_clicker",false).putBoolean("auto_jump",false).apply()
+                        renderTab()
+                    }
+                }
+                card("Sobre", "XZeroy Android • versão 0.2.0 beta\nBuild de desenvolvimento\nMódulos experimentais.")
             }
         }
-        content.addView(clickerButton)
-        jumpButton = Button(this).apply {
-            setOnClickListener {
-                toggle("auto_jump")
-                refreshUi()
-            }
-        }
-        content.addView(jumpButton)
+    }
 
-        content.addView(Button(this).apply {
-            text = "Abrir configurações de Acessibilidade"
-            setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+    private fun title(value: String) {
+        body.addView(TextView(this).apply {
+            text = value; textSize = 23f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD); setPadding(2, 8, 0, 14)
         })
+    }
 
-        content.addView(sectionTitle("Ainda não implementado"))
-        content.addView(TextView(this).apply {
-            text = "ESP, leitura de coordenadas do jogo e comandos administrativos exigem integração específica. Este app não modifica memória do Minecraft nem contorna permissões do servidor."
-            textSize = 13f
-            setTextColor(Color.LTGRAY)
-            setPadding(0, 0, 0, 16)
+    private fun card(name: String, description: String, content: (LinearLayout.() -> Unit)? = null) {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16, 14, 16, 14); setBackgroundColor(Color.rgb(27, 35, 54)) }
+        panel.addView(TextView(this).apply {
+            text = name; textSize = 17f; setTextColor(Color.rgb(160, 184, 255)); setTypeface(null, android.graphics.Typeface.BOLD)
         })
-        setContentView(ScrollView(this).apply { addView(content) })
-        refreshUi()
+        panel.addView(TextView(this).apply { text = description; textSize = 13f; setTextColor(Color.LTGRAY); setPadding(0, 7, 0, 4) })
+        content?.invoke(panel)
+        body.addView(panel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12 })
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (::status.isInitialized) refreshUi()
+    private fun actionButton(label: String, action: () -> Unit) {
+        body.addView(Button(this).apply { text = label; isAllCaps = false; setOnClickListener { action() } })
     }
 
-    private fun sectionTitle(value: String) = TextView(this).apply {
-        text = value
-        textSize = 19f
-        setTextColor(Color.WHITE)
-        setPadding(0, 18, 0, 8)
+    private fun field(label: String, value: Int) = EditText(this).apply {
+        hint = label; setText(value.toString()); setSingleLine(true); inputType = InputType.TYPE_CLASS_NUMBER
+        textSize = 14f; setTextColor(Color.WHITE); setHintTextColor(Color.LTGRAY)
     }
-
-    private fun numberField(label: String, value: Int) = EditText(this).apply {
-        hint = label
-        setText(value.toString())
-        inputType = InputType.TYPE_CLASS_NUMBER
-        textSize = 14f
-        setSingleLine(true)
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.LTGRAY)
-    }
-
-    private fun saveSettings() {
-        fun parsed(field: EditText, fallback: Int, min: Int, max: Int) =
-            (field.text.toString().toIntOrNull() ?: fallback).coerceIn(min, max)
-
-        prefs.edit()
-            .putInt("click_x", parsed(clickX, 82, 0, 100))
-            .putInt("click_y", parsed(clickY, 72, 0, 100))
-            .putInt("click_interval", parsed(clickInterval, 180, 120, 2000))
-            .putInt("jump_x", parsed(jumpX, 92, 0, 100))
-            .putInt("jump_y", parsed(jumpY, 55, 0, 100))
-            .putInt("jump_interval", parsed(jumpInterval, 700, 250, 5000))
-            .apply()
-        refreshUi()
-    }
-
-    private fun toggle(key: String) {
-        prefs.edit().putBoolean(key, !prefs.getBoolean(key, false)).apply()
-    }
-
-    private fun refreshUi() {
-        val clickEnabled = prefs.getBoolean("auto_clicker", false)
-        val jumpEnabled = prefs.getBoolean("auto_jump", false)
-        clickerButton.text = "Auto Clicker: " + if (clickEnabled) "LIGADO" else "DESLIGADO"
-        jumpButton.text = "Auto Jump: " + if (jumpEnabled) "LIGADO" else "DESLIGADO"
-        val serviceEnabled = isAccessibilityServiceEnabled()
-        status.text = when {
-            !serviceEnabled -> "Ação necessária: habilite o serviço XZeroy nas configurações de Acessibilidade."
-            clickEnabled || jumpEnabled -> "Preparado. Os toques só são enviados quando Minecraft Bedrock está em primeiro plano."
-            else -> "Acessibilidade habilitada; módulos desligados."
-        }
-    }
+    private fun number(field: EditText, fallback: Int, min: Int, max: Int) = (field.text.toString().toIntOrNull() ?: fallback).coerceIn(min, max)
+    private fun onOff(key: String) = if (prefs.getBoolean(key, false)) "LIGADO" else "DESLIGADO"
+    private fun toggle(key: String) { prefs.edit().putBoolean(key, !prefs.getBoolean(key, false)).apply() }
+    private fun message(value: String) { android.widget.Toast.makeText(this, value, android.widget.Toast.LENGTH_SHORT).show() }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
         val expected = ComponentName(this, XzeroyAccessibilityService::class.java)
-        val enabled = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         return enabled.split(':').any { ComponentName.unflattenFromString(it) == expected }
     }
 }
