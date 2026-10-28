@@ -55,7 +55,9 @@ class XzeroyAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Gate actual taps on the foreground Minecraft package in the ticker.
+        val isMinecraft = event?.packageName?.toString() == "com.mojang.minecraftpe"
+        getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
+            .edit().putBoolean("minecraft_foreground", isMinecraft).apply()
     }
 
     override fun onInterrupt() {
