@@ -7,6 +7,12 @@ on:
     paths:
       - "xzeroy-native/**"
       - ".github/workflows/xzeroy-native-build.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "xzeroy-native/**"
+      - ".github/workflows/xzeroy-native-build.yml"
   workflow_dispatch:
 
 permissions:
