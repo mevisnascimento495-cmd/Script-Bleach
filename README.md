@@ -1,67 +1,56 @@
-# ProtoHax UserScript Template
+# XZeroy
 
-**A starting point for writing [ProtoHax](https://protohax.net/) client modules
-in TypeScript.**
+Módulos em TypeScript para o cliente **ProtoHax** do Minecraft Bedrock, mantidos neste repositório `Script-Bleach`.
 
-Write your modules in `src/`, run `npm run build`, and get one JavaScript file
-the client loads. Type definitions come from
-[`@protohax/userscript`](https://www.npmjs.com/package/@protohax/userscript), so
-your editor autocompletes the whole game model — entities, the world, inventory,
-every packet payload.
+## O que já está implementado
 
-**Everything else — the lifecycle, the API, the build contract, where scripts
-install — is documented at [userscript.protohax.net](https://userscript.protohax.net).**
+- **AutoSprint:** solicita corrida enquanto há movimento, com opção para correr só para frente e para respeitar o botão de agachar.
+- **AutoJump:** tenta saltar automaticamente ao tocar o chão, com opção para funcionar apenas enquanto o jogador se move. Usa o controle de salto do ProtoHax.
+- **AutoClicker:** usa o agendador de cliques do ProtoHax, com controles de CPS/técnica fornecidos pelo cliente. Clica na rotação que o jogador está enviando; não faz seleção automática de alvos nem aumenta o alcance.
 
-## Quick start
+Os módulos aparecem na categoria **Script** do menu ProtoHax e podem ser ligados/desligados individualmente.
+
+## Limites importantes
+
+O cliente não pode conceder permissões administrativas por conta própria. Alterar o modo de jogo no servidor, adicionar XP ou aplicar efeitos que mudem o estado do servidor depende dos comandos e permissões que o servidor aceita. O servidor também pode validar, corrigir ou bloquear movimentos e cliques. O XZeroy não tenta contornar autenticação, permissões ou validação do servidor.
+
+## Requisitos
+
+- Uma versão do ProtoHax que suporte ProtoHax UserScript.
+- Node.js compatível com as dependências do projeto (recomenda-se Node 22).
+
+## Compilar
 
 ```bash
-npm install
-npm run build      # -> dist/my-script.js
-npm run deploy     # build, then copy into the client's scripts folder
-
-npm run dev        # rebuild + redeploy on every save
-npm run check      # type-check (the build does not)
+npm ci
+npm run check
+npm run build
 ```
 
-Start ProtoHax and `ChatCleaner` appears under Utility, next to the built-in
-modules. Scripts are read at startup, so restart the client after a rebuild.
+O artefato fica em `dist/XZeroy.js`. O arquivo é ignorado pelo Git para que builds locais não substituam o código-fonte.
 
-## Layout
+## Instalação
 
-```
-CLAUDE.md                project brief for AI coding agents
-script.config.mjs        output name, sourcemap, minify, banner fields
-rollup.config.mjs        the bundle: one ES module, facade left external
-build.mjs                runs it (one-shot, --watch, --deploy)
-scripts/deploy.mjs       copies the bundle into the ProtoHax scripts folder
-src/
-  index.ts               entry — a worked example module to replace
-  phaxuser.d.ts          types for `phaxuser:` imports of other scripts
-```
+1. Compile com `npm run build`.
+2. Copie `dist/XZeroy.js` para a pasta `scripts` que sua instalação do ProtoHax utiliza.
+3. Reinicie o ProtoHax e procure os módulos com prefixo `XZeroy |` na categoria **Script**.
 
-`src/index.ts` is the entry point; anything it imports is bundled into the same
-output file, so split it up however you like.
+Para implantação automática, defina `PROTOHAX_SCRIPTS_DIR` com a pasta de scripts no computador e execute `npm run deploy`. Para copiar via ADB a um dispositivo Android conectado, configure o ADB no computador e execute `node build.mjs --deploy --adb`. Em alguns Androids, as restrições de acesso a `Android/data` podem exigir instalação manual.
 
-## Writing a module
+## Desenvolvimento
 
-Every module is one `defineModule` call at the top level of a file:
-
-```ts
-import { defineModule, ModuleCategory } from "@protohax/userscript";
-
-defineModule(
-  { name: "MyModule", category: ModuleCategory.Utility },
-  {
-    strength: { type: "number", def: 1, min: 0, max: 10, step: 0.5 },
-  },
-  (ctx) => {
-    ctx.on("tick", () => ctx.session.entityState.localPlayer.strafe(ctx.options.strength.value, 1));
-  },
-);
+```bash
+npm run check     # verifica tipos TypeScript
+npm run build     # gera um bundle único
+npm run watch     # recompila quando arquivos mudam
 ```
 
-The schema declares the options (interpreted once, shared by every session);
-the setup function runs per session with the typed handles on `ctx.options`.
-`src/index.ts` ships a commented walkthrough of the same shape. For the full
-schema — nested options, drawers, modes — and everything `ctx` can do, see
-[Getting Started](https://userscript.protohax.net/guides/getting-started).
+A API do ProtoHax UserScript ainda está na versão 0.x e pode mudar. Consulte a documentação oficial antes de atualizar o código: <https://userscript.protohax.net/>.
+
+## Uso responsável
+
+Use os módulos de acordo com as regras do servidor. Automação de cliques pode ser proibida em alguns servidores. O XZeroy não inclui auto-aim, ataque automático a outros jogadores, extensão de alcance ou bypass de permissões.
+
+## Licença
+
+MIT. Consulte [`LICENSE`](LICENSE).
