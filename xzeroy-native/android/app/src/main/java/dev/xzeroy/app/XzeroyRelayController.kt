@@ -81,7 +81,7 @@ class XzeroyRelayController private constructor(context: Context) {
                 })
                 relay = candidate
                 candidate.bind(InetSocketAddress("0.0.0.0", localPort))
-                update(current.copy(status = RelayStatus.RUNNING, message = "Relay UDP ativo. Conecte o Minecraft em 127.0.0.1:\${localPort}."))
+                update(current.copy(status = RelayStatus.RUNNING, message = "Relay UDP ativo. Conecte o Minecraft em 127.0.0.1:${localPort}."))
             } catch (error: Throwable) {
                 runCatching { candidate?.takeIf { it.isRunning }?.stop() }
                 relay = null
