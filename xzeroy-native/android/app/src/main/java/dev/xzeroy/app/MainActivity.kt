@@ -12,10 +12,13 @@ import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import java.util.concurrent.Executors
@@ -320,6 +323,11 @@ class MainActivity : Activity() {
                 addView(input)
                 settingFields[setting.key] = input
             }
+            if (module.engineClass != null) {
+                actionButton("Configurar valores da engine") {
+                    showEngineModuleSettings(module)
+                }
+            }
             if (settingFields.isNotEmpty()) {
                 actionButton("Salvar configurações") {
                     moduleStore.saveSettings(module, settingFields.mapValues { (key, input) ->
@@ -336,6 +344,103 @@ class MainActivity : Activity() {
                 renderTab()
             }
         }
+    }
+
+    private fun showEngineModuleSettings(module: XzeroyModuleDefinition) {
+        val settings = relayController.engineValues(module.id)
+        if (settings == null) {
+            message("Inicie o Relay na aba Relay para carregar os valores internos desse módulo.")
+            return
+        }
+        if (settings.isEmpty()) {
+            message("Esse módulo não expõe valores editáveis.")
+            return
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 8, 16, 8)
+        }
+        val edits = linkedMapOf<String, EditText>()
+        val checks = linkedMapOf<String, CheckBox>()
+        val choices = linkedMapOf<String, Spinner>()
+
+        settings.forEach { setting ->
+            when (setting.type) {
+                "boolean" -> {
+                    val check = CheckBox(this).apply {
+                        text = setting.name
+                        setTextColor(Color.WHITE)
+                        isChecked = setting.currentValue.equals("true", true)
+                    }
+                    container.addView(check)
+                    checks[setting.name] = check
+                }
+                "choice" -> {
+                    container.addView(TextView(this).apply {
+                        text = setting.name
+                        textSize = 13f
+                        setTextColor(Color.LTGRAY)
+                        setPadding(0, 8, 0, 3)
+                    })
+                    val spinner = Spinner(this)
+                    val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, setting.choices)
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    spinner.adapter = adapter
+                    val index = setting.choices.indexOfFirst { it.equals(setting.currentValue, true) }
+                    if (index >= 0) spinner.setSelection(index)
+                    container.addView(spinner)
+                    choices[setting.name] = spinner
+                }
+                else -> {
+                    container.addView(TextView(this).apply {
+                        text = if (setting.hint.isBlank()) setting.name else setting.name + " • " + setting.hint
+                        textSize = 13f
+                        setTextColor(Color.LTGRAY)
+                        setPadding(0, 8, 0, 3)
+                    })
+                    val input = EditText(this).apply {
+                        setSingleLine(true)
+                        setText(setting.currentValue)
+                        hint = setting.type
+                        inputType = when (setting.type) {
+                            "integer" -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+                            "decimal" -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                            else -> InputType.TYPE_CLASS_TEXT
+                        }
+                    }
+                    container.addView(input)
+                    edits[setting.name] = input
+                }
+            }
+        }
+
+        val scroll = ScrollView(this).apply { addView(container) }
+        AlertDialog.Builder(this)
+            .setTitle("Configurar • " + module.name)
+            .setView(scroll)
+            .setNegativeButton("Cancelar", null)
+            .setNeutralButton("Restaurar padrões") { _, _ ->
+                if (relayController.resetEngineValues(module.id)) {
+                    message("Valores padrão restaurados para " + module.name + ".")
+                    renderTab()
+                } else {
+                    message("Não foi possível restaurar os padrões.")
+                }
+            }
+            .setPositiveButton("Salvar") { _, _ ->
+                val updated = linkedMapOf<String, String>()
+                edits.forEach { (key, input) -> updated[key] = input.text.toString() }
+                checks.forEach { (key, check) -> updated[key] = check.isChecked.toString() }
+                choices.forEach { (key, spinner) -> updated[key] = spinner.selectedItem?.toString().orEmpty() }
+                val error = relayController.saveEngineValues(module.id, updated)
+                if (error != null) message(error)
+                else {
+                    message("Valores da engine salvos para " + module.name + ".")
+                    renderTab()
+                }
+            }
+            .show()
     }
 
     private fun showSaveProfileDialog() {
@@ -368,6 +473,7 @@ class MainActivity : Activity() {
             .setTitle("Carregar perfil")
             .setItems(names.toTypedArray()) { _, index ->
                 if (profileStore.loadProfile(names[index], prefs)) {
+                    relayController.reloadStoredEngineValues()
                     message("Perfil '" + names[index] + "' carregado.")
                     renderTab()
                 } else {

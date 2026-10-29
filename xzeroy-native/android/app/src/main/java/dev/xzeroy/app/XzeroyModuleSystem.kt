@@ -156,10 +156,15 @@ class XzeroyProfileStore(context: Context) {
             }
             modules.put(item)
         }
+        val engineValues = JSONObject()
+        settings.all.forEach { (key, value) ->
+            if (key.startsWith("engine_value::") && value is String) engineValues.put(key, value)
+        }
         val data = JSONObject()
             .put("schema", 1)
             .put("name", safeName)
             .put("modules", modules)
+            .put("engineValues", engineValues)
         profiles.edit().putString(prefix + safeName, data.toString()).apply()
         return safeName
     }
@@ -191,6 +196,17 @@ class XzeroyProfileStore(context: Context) {
                         item.optInt(setting.key, setting.defaultValue).coerceIn(setting.minValue, setting.maxValue)
                     )
                 }
+            }
+        }
+        val engineValues = root.optJSONObject("engineValues")
+        if (engineValues != null) {
+            val keys = engineValues.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                if (!key.startsWith("engine_value::")) continue
+                val moduleId = key.removePrefix("engine_value::").substringBefore("::")
+                if (XzeroyModuleRegistry.find(moduleId)?.engineClass == null) continue
+                editor.putString(key, engineValues.optString(key))
             }
         }
         editor.apply()
