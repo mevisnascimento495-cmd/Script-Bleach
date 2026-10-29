@@ -27,6 +27,8 @@ import kotlin.math.abs
 
 class XzeroyAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
+    private val moduleStore by lazy { XzeroySettingsStore(this) }
+    private val relayController by lazy { XzeroyRelayController.get(applicationContext) }
     private val moduleEventSubscription = XzeroyModuleEvents.observe {
         handler.post {
             refreshChip()
@@ -158,77 +160,131 @@ class XzeroyAccessibilityService : AccessibilityService() {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(12, 10, 12, 10)
-            background = rounded(Color.rgb(16, 21, 35), Color.rgb(92, 126, 220))
+            setPadding(14, 12, 14, 12)
+            background = rounded(Color.rgb(12, 15, 26), Color.rgb(105, 83, 230))
+            elevation = 16f
         }
-        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        header.addView(TextView(this).apply {
-            text = "XZEROY  •  MENU"
-            textSize = 16f
-            setTextColor(Color.rgb(150, 180, 255))
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val titleColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleColumn.addView(TextView(this).apply {
+            text = "XZEROY"
+            textSize = 18f
+            setTextColor(Color.rgb(174, 163, 255))
             setTypeface(null, android.graphics.Typeface.BOLD)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        })
+        titleColumn.addView(TextView(this).apply {
+            text = "BEDROCK CLIENT  •  CLICKGUI"
+            textSize = 9f
+            setTextColor(Color.rgb(155, 164, 188))
+            setPadding(0, 2, 0, 0)
+        })
+        header.addView(titleColumn, LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(TextView(this).apply {
-            text = "×"; textSize = 24f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            setPadding(12, 0, 12, 2); setOnClickListener { hideMenu() }
+            text = "×"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(12, 0, 5, 2)
+            setOnClickListener { hideMenu() }
         })
         root.addView(header)
+
         val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
+        val relay = relayController.snapshot()
+        val foreground = if (prefs.getBoolean("minecraft_foreground", false)) "EM PRIMEIRO PLANO" else "AGUARDANDO"
         root.addView(TextView(this).apply {
-            text = "BEDROCK  •  " + if (prefs.getBoolean("minecraft_foreground", false)) "EM JOGO" else "AGUARDANDO JOGO"
-            textSize = 10f; setTextColor(Color.LTGRAY); setPadding(2, 3, 2, 8)
+            text = "JOGO: " + foreground + "     •     RELAY: " + relay.status.label.uppercase()
+            textSize = 10f
+            setTextColor(if (relay.status == RelayStatus.RUNNING) Color.rgb(110, 230, 172) else Color.rgb(180, 187, 208))
+            setPadding(2, 7, 2, 10)
         })
 
-        val categories = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        (ModuleCategory.values().map { it.label } + "Settings").forEach { category ->
+        val categories = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 8)
+        }
+        (ModuleCategory.values().map { it.label } + "Settings").forEach { categoryName ->
             categories.addView(TextView(this).apply {
-                text = category
+                text = categoryName
                 textSize = 9f
                 gravity = Gravity.CENTER
-                setTextColor(if (category == selectedCategory) Color.WHITE else Color.LTGRAY)
+                setTextColor(if (categoryName == selectedCategory) Color.WHITE else Color.rgb(177, 185, 208))
                 setPadding(4, 10, 4, 10)
                 background = rounded(
-                    if (category == selectedCategory) Color.rgb(48, 68, 116) else Color.rgb(28, 35, 52),
-                    if (category == selectedCategory) Color.rgb(100, 137, 230) else Color.rgb(45, 52, 72)
+                    if (categoryName == selectedCategory) Color.rgb(80, 64, 177) else Color.rgb(26, 31, 47),
+                    if (categoryName == selectedCategory) Color.rgb(153, 135, 255) else Color.rgb(48, 55, 75)
                 )
-                setOnClickListener { selectedCategory = category; hideMenu(); showMenu() }
-            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(1, 0, 1, 8) })
+                setOnClickListener {
+                    selectedCategory = categoryName
+                    hideMenu()
+                    showMenu()
+                }
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(2, 0, 2, 0) })
         }
         root.addView(categories)
 
         val scroll = ScrollView(this)
         val items = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(items)
+
         if (selectedCategory == "Settings") {
-            section(items, "CONFIGURAÇÕES")
-            moduleAction(items, "Abrir Acessibilidade") {
+            section(items, "CONFIGURAÇÕES DO CLIENT")
+            moduleAction(items, "Abrir configurações de Acessibilidade") {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            moduleAction(items, "Desligar todos os módulos") {
-                XzeroySettingsStore(this).disableAll()
+            moduleAction(items, "Desativar todos os módulos") {
+                moduleStore.disableAll()
                 hideMenu()
                 showMenu()
+            }
+            moduleAction(items, "Abrir painel XZeroy") {
+                val launch = packageManager.getLaunchIntentForPackage(packageName)
+                if (launch != null) {
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(launch)
+                } else {
+                    Toast.makeText(this, "Abra o XZeroy pela tela de aplicativos.", Toast.LENGTH_SHORT).show()
+                }
             }
             moduleAction(items, "Fechar menu") { hideMenu() }
         } else {
             val category = ModuleCategory.values().firstOrNull { it.label == selectedCategory } ?: ModuleCategory.COMBAT
-            section(items, category.label.uppercase())
-            XzeroyModuleRegistry.forCategory(category).forEach { module ->
+            val modules = XzeroyModuleRegistry.forCategory(category)
+            section(items, category.label.uppercase() + "   •   " + modules.count { it.implemented } + " MÓDULOS")
+            modules.forEach { module ->
                 if (module.implemented && module.enabledPreference != null) {
-                    moduleToggle(items, module.name, module.enabledPreference, module.description, module.settings.isNotEmpty())
+                    moduleToggle(items, module)
                 } else {
                     disabledModule(items, module.name, module.description)
                 }
             }
+            if (modules.isEmpty()) {
+                TextView(this).apply {
+                    text = "Nenhum módulo nesta categoria."
+                    textSize = 12f
+                    setTextColor(Color.LTGRAY)
+                    setPadding(8, 12, 8, 12)
+                }.also { items.addView(it) }
+            }
         }
+
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(TextView(this).apply {
-            text = "XZeroy 0.6.0 • beta"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
-            setPadding(0, 8, 0, 0)
+            val enabledCount = XzeroyModuleRegistry.all.count { moduleStore.isEnabled(it) }
+            text = "XZeroy 0.6.0  •  ${enabledCount ATIVOS  •  TOQUE DUPLO = CONFIGURAR"
+            textSize = 9f
+            setTextColor(Color.rgb(135, 145, 171))
+            gravity = Gravity.CENTER
+            setPadding(0, 9, 0, 1)
         })
+
         val params = WindowManager.LayoutParams(
-            (resources.displayMetrics.widthPixels * 0.84f).toInt().coerceAtMost(420),
-            (resources.displayMetrics.heightPixels * 0.70f).toInt(),
+            (resources.displayMetrics.widthPixels * 0.90f).toInt().coerceAtMost(460),
+            (resources.displayMetrics.heightPixels * 0.76f).toInt(),
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
@@ -248,104 +304,217 @@ class XzeroyAccessibilityService : AccessibilityService() {
         })
     }
 
-    private fun moduleToggle(parent: LinearLayout, label: String, key: String, description: String, supportsConfig: Boolean) {
-        val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
+    private fun moduleToggle(parent: LinearLayout, module: XzeroyModuleDefinition) {
+        val key = module.enabledPreference ?: return
+        val supportsConfig = module.settings.isNotEmpty() || module.engineClass != null
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(10, 8, 10, 8)
-            background = rounded(Color.rgb(28, 35, 52), Color.rgb(44, 53, 75))
+            setPadding(11, 9, 11, 9)
+            background = rounded(Color.rgb(23, 29, 45), Color.rgb(53, 61, 85))
         }
-        val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val line = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val name = TextView(this).apply {
-            text = label + if (supportsConfig) "\nToque duas vezes para configurar" else "\nSem opções editáveis nesta versão"
-            textSize = 13f
+            text = module.name + "\n" + when {
+                module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING -> "REQUER RELAY ATIVO"
+                supportsConfig -> "TOQUE DUPLO PARA CONFIGURAR"
+                else -> "SEM OPÇÕES EDITÁVEIS"
+            }
+            textSize = 12f
             setTextColor(Color.WHITE)
-            setPadding(0, 4, 0, 4)
+            setPadding(0, 3, 4, 3)
         }
         var lastTap = 0L
         name.setOnClickListener {
             val now = SystemClock.uptimeMillis()
             if (now - lastTap <= 450L) {
-                if (supportsConfig) showModuleSettings(label, key)
-                else Toast.makeText(this, "$label ainda não tem opções editáveis nesta versão.", Toast.LENGTH_SHORT).show()
+                if (supportsConfig) showModuleSettings(module)
+                else Toast.makeText(this, "${module.name não tem opções editáveis.", Toast.LENGTH_SHORT).show()
                 lastTap = 0L
             } else {
                 lastTap = now
-                Toast.makeText(this, "Toque novamente no nome para configurar", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Toque novamente em ${module.name para configurar.", Toast.LENGTH_SHORT).show()
             }
         }
         line.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
-        line.addView(Button(this).apply {
-            text = if (prefs.getBoolean(key, false)) "ON" else "OFF"
+        if (supportsConfig) {
+            line.addView(Button(this).apply {
+                text = "⚙"
+                isAllCaps = false
+                textSize = 12f
+                setTextColor(Color.rgb(190, 181, 255))
+                background = rounded(Color.rgb(40, 36, 67), Color.rgb(83, 72, 133))
+                setOnClickListener { showModuleSettings(module) }
+            }, LinearLayout.LayoutParams(-2, -2).apply { setMargins(3, 0, 3, 0) })
+        }
+        val toggle = Button(this).apply {
+            text = if (moduleStore.isEnabled(module)) "ON" else "OFF"
             isAllCaps = false
-            textSize = 11f
+            textSize = 10f
+            setTextColor(Color.WHITE)
+            background = rounded(
+                if (moduleStore.isEnabled(module)) Color.rgb(30, 125, 91) else Color.rgb(47, 54, 73),
+                if (moduleStore.isEnabled(module)) Color.rgb(77, 218, 166) else Color.rgb(71, 80, 105)
+            )
             setOnClickListener {
-                val enabled = !prefs.getBoolean(key, false)
-                prefs.edit().putBoolean(key, enabled).apply()
-                XzeroyModuleRegistry.all.firstOrNull { it.enabledPreference == key }?.let { XzeroyModuleEvents.publish(it.id, enabled) }
+                val enabled = moduleStore.toggle(module)
                 text = if (enabled) "ON" else "OFF"
+                background = rounded(
+                    if (enabled) Color.rgb(30, 125, 91) else Color.rgb(47, 54, 73),
+                    if (enabled) Color.rgb(77, 218, 166) else Color.rgb(71, 80, 105)
+                )
                 refreshChip()
             }
-        })
+        }
+        line.addView(toggle)
         row.addView(line)
         row.addView(TextView(this).apply {
-            text = description
-            textSize = 11f
-            setTextColor(Color.LTGRAY)
+            val relayHint = if (module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING) {
+                "\n\nAtive o Relay e conecte o Minecraft através da porta local para aplicar este módulo."
+            } else ""
+            text = module.description + relayHint
+            textSize = 10f
+            setTextColor(Color.rgb(166, 175, 197))
             setPadding(0, 4, 0, 0)
         })
-        parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 2, 0, 5) })
+        parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 3, 0, 5) })
     }
 
-    private fun showModuleSettings(label: String, key: String) {
-        val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
-        val isClicker = key == "auto_clicker"
-        val xKey = if (isClicker) "click_x" else "jump_x"
-        val yKey = if (isClicker) "click_y" else "jump_y"
-        val intervalKey = if (isClicker) "click_interval" else "jump_interval"
-        val defaultX = if (isClicker) 82 else 92
-        val defaultY = if (isClicker) 72 else 55
-        val defaultInterval = if (isClicker) 180 else 700
-        val minInterval = if (isClicker) 120 else 250
-        val maxInterval = if (isClicker) 2000 else 5000
+    private fun showModuleSettings(module: XzeroyModuleDefinition) {
+        if (module.settings.isNotEmpty()) {
+            val content = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(20, 8, 20, 8)
+            }
+            val inputs = linkedMapOf<String, android.widget.EditText>()
+            module.settings.forEach { setting ->
+                content.addView(TextView(this).apply {
+                    text = "${setting.label  •  ${setting.minValue–${setting.maxValue"
+                    textSize = 12f
+                    setTextColor(Color.LTGRAY)
+                    setPadding(0, 7, 0, 2)
+                })
+                val input = android.widget.EditText(this).apply {
+                    setSingleLine(true)
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                    setText(getSharedPreferences("xzeroy_settings", MODE_PRIVATE).getInt(setting.key, setting.defaultValue).toString())
+                    setTextColor(Color.WHITE)
+                    setHintTextColor(Color.GRAY)
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(133, 113, 255))
+                }
+                content.addView(input)
+                inputs[setting.key] = input
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Configurar • ${module.name")
+                .setView(content)
+                .setNegativeButton("Cancelar", null)
+                .setNeutralButton("Desativar") { _, _ -> moduleStore.setEnabled(module, false) }
+                .setPositiveButton("Salvar") { _, _ ->
+                    val values = inputs.mapValues { (key, input) ->
+                        val spec = module.settings.first { it.key == key }
+                        (input.text.toString().toIntOrNull() ?: spec.defaultValue).coerceIn(spec.minValue, spec.maxValue)
+                    }
+                    moduleStore.saveSettings(module, values)
+                    Toast.makeText(this, "Configurações de ${module.name salvas.", Toast.LENGTH_SHORT).show()
+                }
+                .show()
+            return
+        }
+
+        if (module.engineClass == null) {
+            Toast.makeText(this, "Este módulo não tem opções editáveis.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val values = relayController.engineValues(module.id)
+        if (values == null) {
+            Toast.makeText(this, "Inicie o Relay na aba Relay para carregar as opções da engine.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (values.isEmpty()) {
+            Toast.makeText(this, "Este módulo não expõe opções editáveis.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(22, 8, 22, 4)
+            setPadding(18, 8, 18, 8)
         }
-        fun input(title: String, value: Int): android.widget.EditText {
-            content.addView(TextView(this).apply {
-                text = title; textSize = 12f; setTextColor(Color.LTGRAY); setPadding(0, 8, 0, 2)
-            })
-            return android.widget.EditText(this).apply {
-                setSingleLine(true)
-                inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                setText(value.toString())
-                setTextColor(Color.WHITE)
-                setHintTextColor(Color.GRAY)
-                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(100, 137, 230))
-            }.also { content.addView(it) }
+        val edits = linkedMapOf<String, android.widget.EditText>()
+        val checks = linkedMapOf<String, android.widget.CheckBox>()
+        val choices = linkedMapOf<String, android.widget.Spinner>()
+        values.forEach { setting ->
+            when (setting.type) {
+                "boolean" -> {
+                    val check = android.widget.CheckBox(this).apply {
+                        text = setting.name
+                        setTextColor(Color.WHITE)
+                        isChecked = setting.currentValue.equals("true", true)
+                    }
+                    content.addView(check)
+                    checks[setting.name] = check
+                }
+                "choice" -> {
+                    content.addView(TextView(this).apply {
+                        text = setting.name
+                        textSize = 12f
+                        setTextColor(Color.LTGRAY)
+                        setPadding(0, 8, 0, 3)
+                    })
+                    val spinner = android.widget.Spinner(this)
+                    spinner.adapter = android.widget.ArrayAdapter(
+                        this, android.R.layout.simple_spinner_item, setting.choices
+                    ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                    val selected = setting.choices.indexOfFirst { it.equals(setting.currentValue, true) }
+                    if (selected >= 0) spinner.setSelection(selected)
+                    content.addView(spinner)
+                    choices[setting.name] = spinner
+                }
+                else -> {
+                    content.addView(TextView(this).apply {
+                        text = if (setting.hint.isBlank()) setting.name else "${setting.name  •  ${setting.hint"
+                        textSize = 12f
+                        setTextColor(Color.LTGRAY)
+                        setPadding(0, 8, 0, 3)
+                    })
+                    val input = android.widget.EditText(this).apply {
+                        setSingleLine(true)
+                        setText(setting.currentValue)
+                        setTextColor(Color.WHITE)
+                        setHintTextColor(Color.GRAY)
+                        inputType = when (setting.type) {
+                            "integer" -> android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                            "decimal" -> android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                            else -> android.text.InputType.TYPE_CLASS_TEXT
+                        }
+                    }
+                    content.addView(input)
+                    edits[setting.name] = input
+                }
+            }
         }
-        val x = input("Posição X (%) — 0 a 100", prefs.getInt(xKey, defaultX))
-        val y = input("Posição Y (%) — 0 a 100", prefs.getInt(yKey, defaultY))
-        val interval = input("Intervalo (ms) — $minInterval a $maxInterval", prefs.getInt(intervalKey, defaultInterval))
+        val scroll = ScrollView(this).apply { addView(content) }
         AlertDialog.Builder(this)
-            .setTitle("Configurar $label")
-            .setView(content)
+            .setTitle("Configurar • ${module.name")
+            .setView(scroll)
             .setNegativeButton("Cancelar", null)
-            .setNeutralButton("Desativar") { _, _ ->
-                prefs.edit().putBoolean(key, false).apply()
-                refreshChip()
-                if (menu != null) { hideMenu(); showMenu() }
+            .setNeutralButton("Restaurar padrões") { _, _ ->
+                if (relayController.resetEngineValues(module.id)) {
+                    Toast.makeText(this, "Valores padrão restaurados.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Não foi possível restaurar os padrões.", Toast.LENGTH_SHORT).show()
+                }
             }
             .setPositiveButton("Salvar") { _, _ ->
-                fun parse(view: android.widget.EditText, fallback: Int, min: Int, max: Int): Int =
-                    (view.text.toString().toIntOrNull() ?: fallback).coerceIn(min, max)
-                prefs.edit()
-                    .putInt(xKey, parse(x, defaultX, 0, 100))
-                    .putInt(yKey, parse(y, defaultY, 0, 100))
-                    .putInt(intervalKey, parse(interval, defaultInterval, minInterval, maxInterval))
-                    .apply()
-                Toast.makeText(this, "Configurações de $label salvas", Toast.LENGTH_SHORT).show()
+                val updated = linkedMapOf<String, String>()
+                edits.forEach { (key, input) -> updated[key] = input.text.toString() }
+                checks.forEach { (key, check) -> updated[key] = check.isChecked.toString() }
+                choices.forEach { (key, spinner) -> updated[key] = spinner.selectedItem?.toString().orEmpty() }
+                val error = relayController.saveEngineValues(module.id, updated)
+                if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                else Toast.makeText(this, "Opções de ${module.name salvas.", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
