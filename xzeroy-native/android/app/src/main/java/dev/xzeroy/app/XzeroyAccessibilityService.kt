@@ -275,7 +275,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(TextView(this).apply {
             val enabledCount = XzeroyModuleRegistry.all.count { moduleStore.isEnabled(it) }
-            text = "XZeroy 0.6.0  •  ${enabledCount ATIVOS  •  TOQUE DUPLO = CONFIGURAR"
+            text = "XZeroy 0.6.0  •  ${enabledCount} ATIVOS  •  TOQUE DUPLO = CONFIGURAR"
             textSize = 9f
             setTextColor(Color.rgb(135, 145, 171))
             gravity = Gravity.CENTER
@@ -331,11 +331,11 @@ class XzeroyAccessibilityService : AccessibilityService() {
             val now = SystemClock.uptimeMillis()
             if (now - lastTap <= 450L) {
                 if (supportsConfig) showModuleSettings(module)
-                else Toast.makeText(this, "${module.name não tem opções editáveis.", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, "${module.name} não tem opções editáveis.", Toast.LENGTH_SHORT).show()
                 lastTap = 0L
             } else {
                 lastTap = now
-                Toast.makeText(this, "Toque novamente em ${module.name para configurar.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Toque novamente em ${module.name} para configurar.", Toast.LENGTH_SHORT).show()
             }
         }
         line.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
@@ -391,7 +391,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
             val inputs = linkedMapOf<String, android.widget.EditText>()
             module.settings.forEach { setting ->
                 content.addView(TextView(this).apply {
-                    text = "${setting.label  •  ${setting.minValue–${setting.maxValue"
+                    text = "${setting.label}  •  ${setting.minValue}–${setting.maxValue}"
                     textSize = 12f
                     setTextColor(Color.LTGRAY)
                     setPadding(0, 7, 0, 2)
@@ -408,7 +408,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
                 inputs[setting.key] = input
             }
             AlertDialog.Builder(this)
-                .setTitle("Configurar • ${module.name")
+                .setTitle("Configurar • ${module.name}")
                 .setView(content)
                 .setNegativeButton("Cancelar", null)
                 .setNeutralButton("Desativar") { _, _ -> moduleStore.setEnabled(module, false) }
@@ -418,7 +418,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
                         (input.text.toString().toIntOrNull() ?: spec.defaultValue).coerceIn(spec.minValue, spec.maxValue)
                     }
                     moduleStore.saveSettings(module, values)
-                    Toast.makeText(this, "Configurações de ${module.name salvas.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Configurações de ${module.name} salvas.", Toast.LENGTH_SHORT).show()
                 }
                 .show()
             return
@@ -474,7 +474,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
                 }
                 else -> {
                     content.addView(TextView(this).apply {
-                        text = if (setting.hint.isBlank()) setting.name else "${setting.name  •  ${setting.hint"
+                        text = if (setting.hint.isBlank()) setting.name else "${setting.name}  •  ${setting.hint}"
                         textSize = 12f
                         setTextColor(Color.LTGRAY)
                         setPadding(0, 8, 0, 3)
@@ -514,7 +514,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
                 choices.forEach { (key, spinner) -> updated[key] = spinner.selectedItem?.toString().orEmpty() }
                 val error = relayController.saveEngineValues(module.id, updated)
                 if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
-                else Toast.makeText(this, "Opções de ${module.name salvas.", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, "Opções de ${module.name} salvas.", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
