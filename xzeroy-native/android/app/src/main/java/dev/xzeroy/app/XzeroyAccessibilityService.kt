@@ -132,8 +132,8 @@ class XzeroyAccessibilityService : AccessibilityService() {
         ).apply { gravity = Gravity.TOP or Gravity.END; x = 18; y = 180 }
         view.setOnTouchListener(DragListener { dx, dy ->
             val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@DragListener
-            lp.x = (lp.x - dx).coerceAtLeast(0)
-            lp.y = (lp.y + dy).coerceAtLeast(0)
+            lp.x = (lp.x - dx).toInt().coerceAtLeast(0)
+            lp.y = (lp.y + dy).toInt().coerceAtLeast(0)
             wm.updateViewLayout(view, lp)
         })
         wm.addView(view, params)
