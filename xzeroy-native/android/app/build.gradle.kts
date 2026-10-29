@@ -12,11 +12,16 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    buildFeatures { buildConfig = true }
+    val microsoftClientId = providers.gradleProperty("microsoftClientId")
+        .orElse(providers.environmentVariable("MICROSOFT_CLIENT_ID"))
+        .getOrElse("")
     defaultConfig {
         applicationId = "dev.xzeroy.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
+        buildConfigField("String", "MICROSOFT_CLIENT_ID", "\"${microsoftClientId}\"")
     }
 }
