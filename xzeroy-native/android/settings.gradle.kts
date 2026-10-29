@@ -8,6 +8,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.opencollab.dev/maven-snapshots")
         maven("https://repo.opencollab.dev/maven-releases")
+        // Hosts transitive ProtoHax dependencies such as minecraft-msftauth; the ProtoHax engine itself is compiled from the pinned source.
+        maven("https://raw.githubusercontent.com/SkidderMC/ProtoHax-PackageGit/main/maven_repo/")
     }
 }
 rootProject.name = "XZeroyNative"
