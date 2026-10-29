@@ -46,6 +46,8 @@ jobs:
         run: npm --prefix xzeroy-native/server-bridge run check
 
       - name: Build debug APK
+        env:
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
         run: gradle -p xzeroy-native/android assembleDebug
 
       - name: Upload debug APK
