@@ -246,15 +246,33 @@ class XzeroyAccessibilityService : AccessibilityService() {
     private fun moduleToggle(parent: LinearLayout, label: String, key: String, description: String) {
         val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
         val row = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(10, 8, 10, 8)
+            orientation = LinearLayout.VERTICAL
+            setPadding(10, 8, 10, 8)
             background = rounded(Color.rgb(28, 35, 52), Color.rgb(44, 53, 75))
         }
         val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        line.addView(TextView(this).apply {
-            text = label; textSize = 14f; setTextColor(Color.WHITE)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        val name = TextView(this).apply {
+            text = label + "\\nToque duas vezes para configurar"
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            setPadding(0, 4, 0, 4)
+        }
+        var lastTap = 0L
+        name.setOnClickListener {
+            val now = SystemClock.uptimeMillis()
+            if (now - lastTap <= 450L) {
+                showModuleSettings(label, key)
+                lastTap = 0L
+            } else {
+                lastTap = now
+                Toast.makeText(this, "Toque novamente no nome para configurar", Toast.LENGTH_SHORT).show()
+            }
+        }
+        line.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
         line.addView(Button(this).apply {
-            text = if (prefs.getBoolean(key, false)) "ON" else "OFF"; isAllCaps = false; textSize = 11f
+            text = if (prefs.getBoolean(key, false)) "ON" else "OFF"
+            isAllCaps = false
+            textSize = 11f
             setOnClickListener {
                 val enabled = !prefs.getBoolean(key, false)
                 prefs.edit().putBoolean(key, enabled).apply()
@@ -264,9 +282,65 @@ class XzeroyAccessibilityService : AccessibilityService() {
         })
         row.addView(line)
         row.addView(TextView(this).apply {
-            text = description; textSize = 11f; setTextColor(Color.LTGRAY); setPadding(0, 4, 0, 0)
+            text = description
+            textSize = 11f
+            setTextColor(Color.LTGRAY)
+            setPadding(0, 4, 0, 0)
         })
         parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 2, 0, 5) })
+    }
+
+    private fun showModuleSettings(label: String, key: String) {
+        val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
+        val isClicker = key == "auto_clicker"
+        val xKey = if (isClicker) "click_x" else "jump_x"
+        val yKey = if (isClicker) "click_y" else "jump_y"
+        val intervalKey = if (isClicker) "click_interval" else "jump_interval"
+        val defaultX = if (isClicker) 82 else 92
+        val defaultY = if (isClicker) 72 else 55
+        val defaultInterval = if (isClicker) 180 else 700
+        val minInterval = if (isClicker) 120 else 250
+        val maxInterval = if (isClicker) 2000 else 5000
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(22, 8, 22, 4)
+        }
+        fun input(title: String, value: Int): android.widget.EditText {
+            content.addView(TextView(this).apply {
+                text = title; textSize = 12f; setTextColor(Color.LTGRAY); setPadding(0, 8, 0, 2)
+            })
+            return android.widget.EditText(this).apply {
+                setSingleLine(true)
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                setText(value.toString())
+                setTextColor(Color.WHITE)
+                setHintTextColor(Color.GRAY)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(100, 137, 230))
+            }.also { content.addView(it) }
+        }
+        val x = input("Posição X (%) — 0 a 100", prefs.getInt(xKey, defaultX))
+        val y = input("Posição Y (%) — 0 a 100", prefs.getInt(yKey, defaultY))
+        val interval = input("Intervalo (ms) — $minInterval a $maxInterval", prefs.getInt(intervalKey, defaultInterval))
+        AlertDialog.Builder(this)
+            .setTitle("Configurar $label")
+            .setView(content)
+            .setNegativeButton("Cancelar", null)
+            .setNeutralButton("Desativar") { _, _ ->
+                prefs.edit().putBoolean(key, false).apply()
+                refreshChip()
+                if (menu != null) { hideMenu(); showMenu() }
+            }
+            .setPositiveButton("Salvar") { _, _ ->
+                fun parse(view: android.widget.EditText, fallback: Int, min: Int, max: Int): Int =
+                    (view.text.toString().toIntOrNull() ?: fallback).coerceIn(min, max)
+                prefs.edit()
+                    .putInt(xKey, parse(x, defaultX, 0, 100))
+                    .putInt(yKey, parse(y, defaultY, 0, 100))
+                    .putInt(intervalKey, parse(interval, defaultInterval, minInterval, maxInterval))
+                    .apply()
+                Toast.makeText(this, "Configurações de $label salvas", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun disabledModule(parent: LinearLayout, label: String, description: String) {
