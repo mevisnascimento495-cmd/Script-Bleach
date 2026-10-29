@@ -8,7 +8,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.opencollab.dev/maven-snapshots")
         maven("https://repo.opencollab.dev/maven-releases")
-        maven("https://mccheatz.github.io/maven_repo/")
+        maven("https://repo.genshit.xyz/maven_repo/")
+        maven("https://mccheatz.github.io/maven_repo/") // legacy package host
     }
 }
 rootProject.name = "XZeroyNative"
