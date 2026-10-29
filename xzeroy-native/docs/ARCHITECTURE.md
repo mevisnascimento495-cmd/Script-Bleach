@@ -11,7 +11,7 @@
 - **XzeroyModuleSystem.kt** — registro central por categorias, preferências, perfis e eventos de estado.
 - **XzeroyAccessibilityService** — sobreposição Android de gestos; Auto Clicker e Auto Jump usam Acessibilidade.
 - **XzeroyRelayController.kt** — inicia/encerra o relay UDP, instala listeners de protocolo/sessão e aplica estados dos módulos.
-- **engine/protohax** — submódulo Git no commit `afef78c3883ee53fad180ceb6acfae02cf1a302a`, preservado para referência/licença. O app usa o artefato sombreado publicado `dev.sora.relay:ProtoHax:1.4.0` via Maven; não recompila a árvore antiga com dependências indisponíveis.
+- **engine/protohax** — submódulo Git no commit `afef78c3883ee53fad180ceb6acfae02cf1a302a`, com fonte GPL-3.0-or-later compilada diretamente no app. O artefato Maven publicado tinha POM, mas o JAR necessário estava ausente.
 - **server-bridge** — contrato HTTP separado; não concede permissões administrativas.
 
 ## Funcionalidade integrada
