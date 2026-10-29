@@ -27,9 +27,18 @@ import kotlin.math.abs
 
 class XzeroyAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
+    private val moduleEventSubscription = XzeroyModuleEvents.observe {
+        handler.post {
+            refreshChip()
+            if (menu != null) {
+                hideMenu()
+                showMenu()
+            }
+        }
+    }
     private var chip: TextView? = null
     private var menu: LinearLayout? = null
-    private var selectedCategory = "Combat"
+    private var selectedCategory = ModuleCategory.COMBAT.label
     private var gestureInProgress = false
     private var lastClickAt = 0L
     private var lastJumpAt = 0L
@@ -94,6 +103,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         try { chip?.let { wm.removeView(it) } } catch (_: Exception) {}
         menu = null
         chip = null
+        moduleEventSubscription.close()
         super.onDestroy()
     }
 
@@ -170,13 +180,18 @@ class XzeroyAccessibilityService : AccessibilityService() {
         })
 
         val categories = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Combat", "Player", "World", "Settings").forEach { category ->
+        ModuleCategory.values().forEach { moduleCategory ->
+            val category = moduleCategory.label
             categories.addView(TextView(this).apply {
-                text = category; textSize = 11f; gravity = Gravity.CENTER
+                text = category
+                textSize = 10f
+                gravity = Gravity.CENTER
                 setTextColor(if (category == selectedCategory) Color.WHITE else Color.LTGRAY)
                 setPadding(5, 10, 5, 10)
-                background = rounded(if (category == selectedCategory) Color.rgb(48, 68, 116) else Color.rgb(28, 35, 52),
-                    if (category == selectedCategory) Color.rgb(100, 137, 230) else Color.rgb(45, 52, 72))
+                background = rounded(
+                    if (category == selectedCategory) Color.rgb(48, 68, 116) else Color.rgb(28, 35, 52),
+                    if (category == selectedCategory) Color.rgb(100, 137, 230) else Color.rgb(45, 52, 72)
+                )
                 setOnClickListener { selectedCategory = category; hideMenu(); showMenu() }
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(2, 0, 2, 8) })
         }
@@ -185,42 +200,18 @@ class XzeroyAccessibilityService : AccessibilityService() {
         val scroll = ScrollView(this)
         val items = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(items)
-        when (selectedCategory) {
-            "Combat" -> {
-                section(items, "AUTOMATION")
-                moduleToggle(items, "Auto Clicker", "auto_clicker", "Toques numa posição configurada.")
-                moduleToggle(items, "Auto Jump", "auto_jump", "Toques periódicos na posição de pulo.")
-                section(items, "EM DESENVOLVIMENTO")
-                disabledModule(items, "Reach", "Ainda não implementado")
-                disabledModule(items, "Aim Assist", "Ainda não implementado")
-            }
-            "Player" -> {
-                section(items, "PLAYER")
-                disabledModule(items, "ESP", "Ainda não implementado")
-                disabledModule(items, "Entity Info", "Ainda não implementado")
-                disabledModule(items, "Inventory", "Ainda não implementado")
-            }
-            "World" -> {
-                section(items, "WORLD")
-                disabledModule(items, "World Info", "Ainda não implementado")
-                disabledModule(items, "Server Admin", "Exige permissões autorizadas no servidor")
-            }
-            else -> {
-                section(items, "CONFIGURAÇÕES")
-                moduleAction(items, "Abrir Acessibilidade") {
-                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-                moduleAction(items, "Desligar todos os módulos") {
-                    prefs.edit().putBoolean("auto_clicker", false).putBoolean("auto_jump", false).apply()
-                    hideMenu()
-                    showMenu()
-                }
-                moduleAction(items, "Fechar menu") { hideMenu() }
+        val category = ModuleCategory.values().firstOrNull { it.label == selectedCategory } ?: ModuleCategory.COMBAT
+        section(items, category.label.uppercase())
+        XzeroyModuleRegistry.forCategory(category).forEach { module ->
+            if (module.implemented && module.enabledPreference != null) {
+                moduleToggle(items, module.name, module.enabledPreference, module.description)
+            } else {
+                disabledModule(items, module.name, module.description)
             }
         }
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(TextView(this).apply {
-            text = "XZeroy 0.4.0 • beta"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            text = "XZeroy 0.5.0 • beta"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
             setPadding(0, 8, 0, 0)
         })
         val params = WindowManager.LayoutParams(
@@ -254,7 +245,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         }
         val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val name = TextView(this).apply {
-            text = label + "\\nToque duas vezes para configurar"
+            text = label + "\nToque duas vezes para configurar"
             textSize = 13f
             setTextColor(Color.WHITE)
             setPadding(0, 4, 0, 4)
@@ -278,6 +269,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
             setOnClickListener {
                 val enabled = !prefs.getBoolean(key, false)
                 prefs.edit().putBoolean(key, enabled).apply()
+                XzeroyModuleRegistry.all.firstOrNull { it.enabledPreference == key }?.let { XzeroyModuleEvents.publish(it.id, enabled) }
                 text = if (enabled) "ON" else "OFF"
                 refreshChip()
             }

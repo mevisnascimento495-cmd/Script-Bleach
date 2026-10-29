@@ -26,6 +26,9 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private lateinit var connectionStatus: TextView
     private var currentTab = "Início"
+    private var selectedModuleCategory = ModuleCategory.COMBAT
+    private val profileStore by lazy { XzeroyProfileStore(this) }
+    private val moduleStore by lazy { XzeroySettingsStore(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,54 +149,21 @@ class MainActivity : Activity() {
                 )
                 card(
                     "Limites desta versão",
-                    "ESP, leitura de entidades, alteração de alcance e permissões administrativas do servidor ainda não estão implementados. A interface não os marcará como funcionais."
+                    "O motor de relay de pacotes Bedrock, leitura real de entidades, alcance e integração Xbox/Minecraft ainda não estão conectados. Os módulos não implementados ficam desativados e identificados como pendentes."
                 )
             }
 
             "Módulos" -> {
                 title("Módulos")
-                card("Auto Clicker", "Envia toques em posição fixa quando o Minecraft está em primeiro plano.") {
-                    val x = field("Coordenada X (%)", prefs.getInt("click_x", 82))
-                    val y = field("Coordenada Y (%)", prefs.getInt("click_y", 72))
-                    val interval = field("Intervalo em ms (120–2000)", prefs.getInt("click_interval", 180))
-                    addView(x)
-                    addView(y)
-                    addView(interval)
-                    actionButton("Salvar Auto Clicker") {
-                        prefs.edit()
-                            .putInt("click_x", number(x, 82, 0, 100))
-                            .putInt("click_y", number(y, 72, 0, 100))
-                            .putInt("click_interval", number(interval, 180, 120, 2000))
-                            .apply()
-                        message("Configuração salva.")
-                    }
-                    actionButton("Alternar Auto Clicker (" + onOff("auto_clicker") + ")") {
-                        toggle("auto_clicker")
-                        renderTab()
-                    }
-                }
-                card("Auto Jump", "Envia toques em posição fixa; depende do layout dos controles. Pode funcionar junto do Auto Clicker.") {
-                    val x = field("Coordenada X (%)", prefs.getInt("jump_x", 92))
-                    val y = field("Coordenada Y (%)", prefs.getInt("jump_y", 55))
-                    val interval = field("Intervalo em ms (250–5000)", prefs.getInt("jump_interval", 700))
-                    addView(x)
-                    addView(y)
-                    addView(interval)
-                    actionButton("Salvar Auto Jump") {
-                        prefs.edit()
-                            .putInt("jump_x", number(x, 92, 0, 100))
-                            .putInt("jump_y", number(y, 55, 0, 100))
-                            .putInt("jump_interval", number(interval, 700, 250, 5000))
-                            .apply()
-                        message("Configuração salva.")
-                    }
-                    actionButton("Alternar Auto Jump (" + onOff("auto_jump") + ")") {
-                        toggle("auto_jump")
-                        renderTab()
-                    }
-                }
-                listOf("ESP", "Reach / alcance", "Player / entidades", "Inventário", "Admin de servidor").forEach { module ->
-                    card(module, "Ainda não implementado nesta versão. Nenhum recurso é simulado como se já funcionasse.")
+                body.addView(TextView(this).apply {
+                    text = "Categorias de módulos"
+                    textSize = 12f
+                    setTextColor(Color.LTGRAY)
+                    setPadding(2, 0, 0, 8)
+                })
+                renderCategorySelector()
+                XzeroyModuleRegistry.forCategory(selectedModuleCategory).forEach { module ->
+                    renderModuleCard(module)
                 }
             }
 
@@ -233,18 +203,148 @@ class MainActivity : Activity() {
 
             "Ajustes" -> {
                 title("Ajustes")
+                card("Perfis de configuração", "Salve e carregue combinações de módulos e valores. Os perfis ficam apenas neste dispositivo.") {
+                    actionButton("Salvar perfil atual") { showSaveProfileDialog() }
+                    actionButton("Carregar perfil") { showLoadProfileDialog() }
+                    actionButton("Excluir perfil") { showDeleteProfileDialog() }
+                }
                 card("Integração Android", "O serviço é opcional e precisa ser ativado manualmente. Ele envia toques configurados; não injeta código no Minecraft.") {
                     actionButton("Abrir Acessibilidade do Android") {
                         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
                     actionButton("Desativar todos os módulos") {
-                        prefs.edit().putBoolean("auto_clicker", false).putBoolean("auto_jump", false).apply()
+                        moduleStore.disableAll()
                         renderTab()
                     }
                 }
-                card("Sobre", "XZeroy Android • versão 0.4.0 beta\nBuild de desenvolvimento")
+                card("Sobre", "XZeroy Android • versão 0.5.0 beta\nBuild de desenvolvimento")
             }
         }
+    }
+
+
+    private fun renderCategorySelector() {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 10)
+        }
+        ModuleCategory.values().forEach { category ->
+            row.addView(Button(this).apply {
+                text = category.label
+                textSize = 10f
+                isAllCaps = false
+                setOnClickListener {
+                    selectedModuleCategory = category
+                    renderTab()
+                }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(2, 0, 2, 0)
+            })
+        }
+        body.addView(row, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    private fun renderModuleCard(module: XzeroyModuleDefinition) {
+        val status = if (module.implemented) {
+            if (module.enabledPreference?.let { prefs.getBoolean(it, false) } == true) " • LIGADO" else " • DESLIGADO"
+        } else {
+            " • EM DESENVOLVIMENTO"
+        }
+        val description = if (module.implemented) {
+            module.description
+        } else {
+            module.description + "\nEste módulo não executa ações nesta versão."
+        }
+        card(module.name + status, description) {
+            val enabledKey = module.enabledPreference
+            if (!module.implemented || enabledKey == null) {
+                actionButton("Indisponível nesta versão") {
+                    message("Este módulo ainda não está implementado. O XZeroy não vai simular uma função que não existe.")
+                }
+                return@card
+            }
+
+            val settingFields = linkedMapOf<String, EditText>()
+            module.settings.forEach { setting ->
+                val input = field(
+                    setting.label + " (" + setting.minValue + "–" + setting.maxValue + ")",
+                    prefs.getInt(setting.key, setting.defaultValue)
+                )
+                addView(input)
+                settingFields[setting.key] = input
+            }
+            if (settingFields.isNotEmpty()) {
+                actionButton("Salvar configurações") {
+                    moduleStore.saveSettings(module, settingFields.mapValues { (key, input) ->
+                        val definition = module.settings.first { it.key == key }
+                        number(input, definition.defaultValue, definition.minValue, definition.maxValue)
+                    })
+                    message("Configurações de " + module.name + " salvas.")
+                }
+            }
+            actionButton(
+                (if (prefs.getBoolean(enabledKey, false)) "Desativar " else "Ativar ") + module.name
+            ) {
+                moduleStore.toggle(module)
+                renderTab()
+            }
+        }
+    }
+
+    private fun showSaveProfileDialog() {
+        val input = EditText(this).apply {
+            setSingleLine(true)
+            hint = "Nome do perfil"
+            setText("Meu perfil")
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Salvar perfil")
+            .setMessage("O perfil guarda estados e valores dos módulos conhecidos.")
+            .setView(input)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Salvar") { _, _ ->
+                val name = profileStore.saveProfile(input.text.toString(), prefs)
+                if (name == null) message("Escolha um nome válido (até 32 caracteres).")
+                else message("Perfil '" + name + "' salvo.")
+            }
+            .show()
+    }
+
+    private fun showLoadProfileDialog() {
+        val names = profileStore.listProfiles()
+        if (names.isEmpty()) {
+            message("Ainda não há perfis salvos.")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Carregar perfil")
+            .setItems(names.toTypedArray()) { _, index ->
+                if (profileStore.loadProfile(names[index], prefs)) {
+                    message("Perfil '" + names[index] + "' carregado.")
+                    renderTab()
+                } else {
+                    message("Não foi possível carregar esse perfil.")
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun showDeleteProfileDialog() {
+        val names = profileStore.listProfiles()
+        if (names.isEmpty()) {
+            message("Ainda não há perfis salvos.")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Excluir perfil")
+            .setItems(names.toTypedArray()) { _, index ->
+                if (profileStore.deleteProfile(names[index])) message("Perfil excluído.")
+                else message("Não foi possível excluir o perfil.")
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun startMicrosoftSignIn(clientId: String) {
@@ -390,7 +490,11 @@ class MainActivity : Activity() {
         if (prefs.getBoolean(key, false)) "LIGADO" else "DESLIGADO"
 
     private fun toggle(key: String) {
-        prefs.edit().putBoolean(key, !prefs.getBoolean(key, false)).apply()
+        val next = !prefs.getBoolean(key, false)
+        prefs.edit().putBoolean(key, next).apply()
+        XzeroyModuleRegistry.all.firstOrNull { it.enabledPreference == key }?.let {
+            XzeroyModuleEvents.publish(it.id, next)
+        }
     }
 
     private fun message(value: String) {
