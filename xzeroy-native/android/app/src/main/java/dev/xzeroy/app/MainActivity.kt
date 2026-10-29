@@ -29,6 +29,8 @@ class MainActivity : Activity() {
     private var selectedModuleCategory = ModuleCategory.COMBAT
     private val profileStore by lazy { XzeroyProfileStore(this) }
     private val moduleStore by lazy { XzeroySettingsStore(this) }
+    private val relayController by lazy { XzeroyRelayController.get(applicationContext) }
+    private var relayObservation: AutoCloseable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +79,7 @@ class MainActivity : Activity() {
             setPadding(4, 7, 4, 7)
             setBackgroundColor(Color.rgb(22, 29, 48))
         }
-        listOf("Início", "Módulos", "Conta", "Ajustes").forEach { tab ->
+        listOf("Início", "Módulos", "Relay", "Conta", "Ajustes").forEach { tab ->
             nav.addView(Button(this).apply {
                 text = tab
                 textSize = 11f
@@ -90,6 +92,9 @@ class MainActivity : Activity() {
         }
         root.addView(nav)
         setContentView(root)
+        relayObservation = relayController.observe {
+            runOnUiThread { if (!isFinishing && !isDestroyed && ::body.isInitialized && currentTab == "Relay") renderTab() }
+        }
         renderTab()
     }
 
@@ -99,6 +104,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        relayObservation?.close()
         networkExecutor.shutdownNow()
         super.onDestroy()
     }
@@ -110,6 +116,7 @@ class MainActivity : Activity() {
         val minecraftForeground = prefs.getBoolean("minecraft_foreground", false)
 
         connectionStatus.text = when {
+            relayController.snapshot().status == RelayStatus.RUNNING -> "RELAY: ativo • UDP " + relayController.snapshot().localPort
             minecraftForeground && minecraftInstalled -> "MINECRAFT: detectado em primeiro plano"
             minecraftInstalled && !serviceOn -> "MINECRAFT: instalado • ative Acessibilidade para módulos"
             minecraftInstalled -> "MINECRAFT: instalado • abra o jogo para detectar"
@@ -167,6 +174,8 @@ class MainActivity : Activity() {
                 }
             }
 
+            "Relay" -> renderRelayTab()
+
             "Conta" -> {
                 title("Conta Microsoft")
                 if (prefs.getBoolean("ms_signed_in", false)) {
@@ -217,11 +226,48 @@ class MainActivity : Activity() {
                         renderTab()
                     }
                 }
-                card("Sobre", "XZeroy Android • versão 0.5.0 beta\nBuild de desenvolvimento")
+                card("Sobre", "XZeroy Android • versão 0.6.0 beta\nBuild de desenvolvimento")
             }
         }
     }
 
+
+    private fun renderRelayTab() {
+        title("Relay Bedrock")
+        val state = relayController.snapshot()
+        card("Estado: " + state.status.label, state.message +
+            "\nDestino: " + (state.targetHost.ifBlank { "não configurado" }) + ":" + state.targetPort +
+            "\nPorta local: UDP " + state.localPort) {
+            actionButton("Atualizar estado") { renderTab() }
+            actionButton("Parar relay") {
+                if (!relayController.stop()) message("O relay já está parado ou encerrando.")
+                renderTab()
+            }
+        }
+        val hostField = textField("IP ou domínio do servidor", prefs.getString("relay_target_host", "") ?: "")
+        val targetPortField = field("Porta do servidor de destino", prefs.getInt("relay_target_port", 19132))
+        val localPortField = field("Porta local do relay", prefs.getInt("relay_local_port", 19136))
+        card("Destino do servidor", "O XZeroy recebe a conexão do Minecraft em uma porta UDP local e encaminha os pacotes ao destino configurado.") {
+            addView(hostField)
+            addView(targetPortField)
+            addView(localPortField)
+            actionButton("Iniciar relay") {
+                val host = hostField.text.toString().trim()
+                val targetPort = number(targetPortField, 19132, 1, 65535)
+                val localPort = number(localPortField, 19136, 1024, 65535)
+                if (host.isBlank()) {
+                    message("Informe o IP ou domínio do servidor de destino.")
+                    return@actionButton
+                }
+                prefs.edit().putString("relay_target_host", host).putInt("relay_target_port", targetPort).putInt("relay_local_port", localPort).apply()
+                if (!relayController.start(host, targetPort, localPort)) message("O relay já está iniciando, ativo ou com dados inválidos.")
+                renderTab()
+            }
+        }
+        card("Como conectar", "Quando o estado ficar Ativo, abra o Minecraft Bedrock e adicione um servidor com endereço 127.0.0.1 e a porta local exibida.")
+        card("Limitação de autenticação", "Esta integração usa o listener de sessão offline do ProtoHax. Ela NÃO cria tokens Xbox Live/XSTS/Minecraft; servidores públicos que exigem autenticação Xbox podem recusar o login.")
+        card("Compatibilidade", "Os codecs do ProtoHax estão fixados em versões anteriores e ainda não foram validados com o Bedrock atual. Teste apenas em um servidor que você controla ou tem permissão para usar.")
+    }
 
     private fun renderCategorySelector() {
         val row = LinearLayout(this).apply {
@@ -250,10 +296,11 @@ class MainActivity : Activity() {
         } else {
             " • EM DESENVOLVIMENTO"
         }
-        val description = if (module.implemented) {
-            module.description
-        } else {
-            module.description + "\nEste módulo não executa ações nesta versão."
+        val relayRequired = module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING
+        val description = when {
+            !module.implemented -> module.description + "\nEste módulo não executa ações nesta versão."
+            relayRequired -> module.description + "\nAtive o Relay para enviar eventos ao motor de jogo."
+            else -> module.description
         }
         card(module.name + status, description) {
             val enabledKey = module.enabledPreference

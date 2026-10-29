@@ -1,37 +1,43 @@
 # XZeroy Native — arquitetura após o rework
 
-## Objetivo e referências
+## Referências
 
-O rework toma como referência a separação de responsabilidades visível nos projetos públicos [ProtoHax](https://github.com/hax0r31337/ProtoHax) e [Project Lumina / LuminaClient](https://github.com/TheProjectLumina/LuminaClient): catálogo de módulos por categoria, valores/configuração separados da UI, eventos de estado e uma camada de interface que pode evoluir sem se misturar ao motor de jogo.
+- [ProtoHax](https://github.com/hax0r31337/ProtoHax): relay UDP/RakNet de Bedrock, sessões, listeners de pacotes, estado de jogo e módulos.
+- [LuminaClient](https://github.com/TheProjectLumina/LuminaClient): separa rede/protocolo (Lunaris), UI nativa (Pixie) e bibliotecas do protocolo. O XZeroy usa a separação como referência, sem copiar a interface do Lumina.
 
-Este repositório mantém implementação própria nesta etapa; não copia arquivos-fonte, recursos visuais ou código dos projetos de referência. Inspiração arquitetural não significa equivalência funcional.
+## Componentes
 
-## Componentes atuais
+- **MainActivity** — painel Android Início/Módulos/Relay/Conta/Ajustes.
+- **XzeroyModuleSystem.kt** — registro central por categorias, preferências, perfis e eventos de estado.
+- **XzeroyAccessibilityService** — sobreposição Android de gestos; Auto Clicker e Auto Jump usam Acessibilidade.
+- **XzeroyRelayController.kt** — inicia/encerra o relay UDP, instala listeners de protocolo/sessão e aplica estados dos módulos.
+- **engine/protohax** — submódulo Git no commit `afef78c3883ee53fad180ceb6acfae02cf1a302a`; build Gradle separado com licença upstream.
+- **server-bridge** — contrato HTTP separado; não concede permissões administrativas.
 
-- **MainActivity** — painel Android, conta Microsoft e preferências do usuário.
-- **XzeroyModuleSystem.kt** — registro central de módulos, categorias Combat/Movement/Visual/Misc, definições de valores, loja de estados e eventos entre o painel e a sobreposição.
-- **XzeroyAccessibilityService** — sobreposição nativa e backend Android de gestos. Usa o mesmo registro do painel.
-- **XzeroyProfileStore** — perfis locais versionados em JSON; restaura apenas chaves conhecidas e valida limites numéricos.
-- **server-bridge** — contrato HTTP do protótipo; ainda não constitui integração com o protocolo Bedrock.
+## Funcionalidade integrada
 
-## O que funciona nesta versão
+- Auto Clicker e Auto Jump com coordenadas/intervalos.
+- Categorias compartilhadas entre painel e sobreposição.
+- Módulos com `engineClass` ligados ao `ModuleManager` ProtoHax quando uma sessão de relay é criada.
+- Tela Relay com destino, porta UDP local, estado e iniciar/parar.
+- Perfis JSON locais versionados.
 
-- Estado persistido de Auto Clicker e Auto Jump.
-- Configuração de coordenadas e intervalos com limites validados.
-- Categorias de módulos compartilhadas entre o painel e a sobreposição.
-- Configuração por toque duplo no nome do módulo funcional.
-- Ativar/desativar módulos funcionais a partir do painel ou sobreposição e atualizar a interface via eventos.
-- Salvar, listar, carregar e excluir perfis locais.
-- Módulos sem backend aparecem como não implementados e não executam ações fictícias.
+## Limitações
 
-## O que ainda não está integrado
+- **Autenticação:** o listener cria identidade offline, não faz Xbox Live/XSTS/Minecraft. Servidores autenticados podem recusar a sessão. O login Microsoft da aba Conta consulta o perfil Graph e não fornece a cadeia Xbox/Minecraft.
+- **Compatibilidade:** o ProtoHax pinado tem codecs antigos. Build bem-sucedido não prova conexão com a versão atual do Bedrock nem funcionamento em aparelho.
+- **Renderização:** ESP e informação visual de entidades não estão integrados ao renderizador do Minecraft.
+- **Valores internos:** os módulos usam valores padrão do ProtoHax; editor genérico de `Value<T>` ainda não foi ligado à UI.
+- **Ciclo de vida:** upstream não expõe fecho explícito de todos os executores da sessão. Testes de start/stop/reconexão são necessários antes de uso prolongado.
 
-O motor de relay de pacotes, a sessão Bedrock real, os codecs por versão, autenticação Xbox/XSTS/Minecraft, o estado de entidades/chunks e renderização de ESP ainda precisam ser integrados e testados separadamente. O login Microsoft básico já presente nesta app não equivale a uma sessão válida no Xbox Live ou no Minecraft. Não se deve tratar o XZeroy atual como equivalente ao ProtoHax/Lumina em funcionalidades de rede.
+## Licença
 
-## Próxima camada de engenharia
+ProtoHax é GPL-3.0-or-later, mantido como submódulo Git, com licença em `LICENSE-GPL-3.0.txt`. Antes de redistribuir o APK combinado, revise as obrigações GPL e preserve fontes/avisos de todas as partes integradas.
 
-1. Adicionar um módulo de engine separado da UI e do serviço Android.
-2. Implementar uma sessão Bedrock version-aware sobre uma biblioteca de protocolo mantida, com estados de conexão explícitos.
-3. Introduzir GameSession, eventos tipados de pacotes e um ciclo de vida que feche canais e loops de rede corretamente.
-4. Conectar cada módulo a eventos/capacidades reais da sessão; manter indisponíveis os módulos que precisem de estado ainda inexistente.
-5. Testar Android em dispositivo e validar autenticação e compatibilidade de protocolos antes de marcar qualquer função como funcional.
+## Testes restantes
+
+1. Compilar com a engine incluída.
+2. Testar relay em rede local e conferir a versão de protocolo.
+3. Implementar o fluxo Microsoft → Xbox Live → XSTS → Minecraft sem expor tokens.
+4. Corrigir gestão de executores/reconexões e validar Bedrock atual.
+5. Ligar valores internos da engine à UI; manter ESP como não implementado.

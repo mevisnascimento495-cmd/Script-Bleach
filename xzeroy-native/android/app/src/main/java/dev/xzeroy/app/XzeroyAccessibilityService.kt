@@ -215,7 +215,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
             section(items, category.label.uppercase())
             XzeroyModuleRegistry.forCategory(category).forEach { module ->
                 if (module.implemented && module.enabledPreference != null) {
-                    moduleToggle(items, module.name, module.enabledPreference, module.description)
+                    moduleToggle(items, module.name, module.enabledPreference, module.description, module.settings.isNotEmpty())
                 } else {
                     disabledModule(items, module.name, module.description)
                 }
@@ -223,7 +223,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         }
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(TextView(this).apply {
-            text = "XZeroy 0.5.0 • beta"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            text = "XZeroy 0.6.0 • beta"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
             setPadding(0, 8, 0, 0)
         })
         val params = WindowManager.LayoutParams(
@@ -248,7 +248,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         })
     }
 
-    private fun moduleToggle(parent: LinearLayout, label: String, key: String, description: String) {
+    private fun moduleToggle(parent: LinearLayout, label: String, key: String, description: String, supportsConfig: Boolean) {
         val prefs = getSharedPreferences("xzeroy_settings", MODE_PRIVATE)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -257,7 +257,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         }
         val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val name = TextView(this).apply {
-            text = label + "\nToque duas vezes para configurar"
+            text = label + if (supportsConfig) "\nToque duas vezes para configurar" else "\nSem opções editáveis nesta versão"
             textSize = 13f
             setTextColor(Color.WHITE)
             setPadding(0, 4, 0, 4)
@@ -266,7 +266,8 @@ class XzeroyAccessibilityService : AccessibilityService() {
         name.setOnClickListener {
             val now = SystemClock.uptimeMillis()
             if (now - lastTap <= 450L) {
-                showModuleSettings(label, key)
+                if (supportsConfig) showModuleSettings(label, key)
+                else Toast.makeText(this, "$label ainda não tem opções editáveis nesta versão.", Toast.LENGTH_SHORT).show()
                 lastTap = 0L
             } else {
                 lastTap = now

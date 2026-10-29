@@ -28,7 +28,8 @@ data class XzeroyModuleDefinition(
     val category: ModuleCategory,
     val implemented: Boolean,
     val enabledPreference: String? = null,
-    val settings: List<ModuleSettingDefinition> = emptyList()
+    val settings: List<ModuleSettingDefinition> = emptyList(),
+    val engineClass: String? = null
 )
 
 data class ModuleStateChanged(val moduleId: String, val enabled: Boolean)
@@ -53,67 +54,40 @@ object XzeroyModuleEvents {
  */
 object XzeroyModuleRegistry {
     val all: List<XzeroyModuleDefinition> = listOf(
-        XzeroyModuleDefinition(
-            "auto_clicker", "Auto Clicker",
-            "Envia toques repetidos em uma coordenada fixa enquanto o Minecraft está em primeiro plano.",
-            ModuleCategory.COMBAT, true, "auto_clicker",
-            listOf(
-                ModuleSettingDefinition("click_x", "Coordenada X (%)", 82, 0, 100),
-                ModuleSettingDefinition("click_y", "Coordenada Y (%)", 72, 0, 100),
-                ModuleSettingDefinition("click_interval", "Intervalo (ms)", 180, 120, 2000)
-            )
-        ),
-        XzeroyModuleDefinition(
-            "kill_aura", "Kill Aura",
-            "Motor de combate e seleção de entidades ainda não existe.",
-            ModuleCategory.COMBAT, false
-        ),
-        XzeroyModuleDefinition(
-            "velocity", "Velocity",
-            "Manipulação de pacotes de knockback ainda não existe.",
-            ModuleCategory.COMBAT, false
-        ),
-        XzeroyModuleDefinition(
-            "reach", "Reach",
-            "A camada de entidades e o motor de pacotes Bedrock ainda não estão conectados.",
-            ModuleCategory.COMBAT, false
-        ),
-        XzeroyModuleDefinition(
-            "target_lock", "Target Lock",
-            "A seleção de alvos depende do futuro estado de entidades do jogo.",
-            ModuleCategory.COMBAT, false
-        ),
-        XzeroyModuleDefinition(
-            "auto_jump", "Auto Jump",
-            "Envia toques periódicos na posição configurada para o botão de pulo.",
-            ModuleCategory.MOVEMENT, true, "auto_jump",
-            listOf(
-                ModuleSettingDefinition("jump_x", "Coordenada X (%)", 92, 0, 100),
-                ModuleSettingDefinition("jump_y", "Coordenada Y (%)", 55, 0, 100),
-                ModuleSettingDefinition("jump_interval", "Intervalo (ms)", 700, 250, 5000)
-            )
-        ),
-        XzeroyModuleDefinition("air_jump", "Air Jump", "Exige integração real com estado e movimento do jogador.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("fly", "Fly", "Exige suporte do motor de rede e compatibilidade com o servidor.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("speed", "Speed", "Exige integração com o movimento do jogador e o protocolo Bedrock.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("no_fall", "No Fall", "Exige uma implementação compatível com a versão de protocolo do jogo.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("clip", "Clip", "Não implementado: não altera colisão ou pacotes do jogo.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("blink", "Blink", "Não implementado: não intercepta nem enfileira pacotes de movimento.", ModuleCategory.MOVEMENT, false),
-        XzeroyModuleDefinition("esp", "ESP", "A leitura de entidades e a camada de renderização de jogo ainda não existem.", ModuleCategory.VISUAL, false),
-        XzeroyModuleDefinition("anti_blind", "Anti Blind", "Não há interceptação de efeitos de jogo nesta versão.", ModuleCategory.VISUAL, false),
-        XzeroyModuleDefinition("hit_effect", "Hit Effect", "Os eventos de combate do jogo ainda não estão disponíveis.", ModuleCategory.VISUAL, false),
-        XzeroyModuleDefinition("no_hurt_camera", "No Hurt Camera", "A câmera do Minecraft não é modificada pelo XZeroy.", ModuleCategory.VISUAL, false),
-        XzeroyModuleDefinition("entity_info", "Entity Info", "O modelo de entidades do cliente ainda não foi integrado.", ModuleCategory.VISUAL, false),
-        XzeroyModuleDefinition("fast_break", "Fast Break", "A interação com blocos por pacotes não está implementada.", ModuleCategory.MISC, false),
-        XzeroyModuleDefinition("inventory_helper", "Inventory Helper", "A sincronização do inventário do Bedrock não está implementada.", ModuleCategory.MISC, false),
-        XzeroyModuleDefinition("device_spoof", "Device Spoof", "Os dados de login de dispositivo ainda não são alterados.", ModuleCategory.MISC, false),
-        XzeroyModuleDefinition("resource_pack", "Resource Pack Tools", "A negociação de resource packs não está implementada.", ModuleCategory.MISC, false),
-        XzeroyModuleDefinition("world_download", "World Download", "A captura de chunks e a gravação de mundo ainda não existem.", ModuleCategory.MISC, false)
+        XzeroyModuleDefinition("auto_clicker", "Auto Clicker", "Envia toques repetidos em coordenada fixa enquanto o Minecraft está em primeiro plano.", ModuleCategory.COMBAT, true, "auto_clicker",
+            listOf(ModuleSettingDefinition("click_x", "Coordenada X (%)", 82, 0, 100), ModuleSettingDefinition("click_y", "Coordenada Y (%)", 72, 0, 100), ModuleSettingDefinition("click_interval", "Intervalo (ms)", 180, 120, 2000))),
+        XzeroyModuleDefinition("kill_aura", "Kill Aura", "Módulo de combate ProtoHax; requer Relay ativo e servidor compatível.", ModuleCategory.COMBAT, true, "kill_aura", engineClass = "ModuleKillAura"),
+        XzeroyModuleDefinition("velocity", "Velocity", "Manipula eventos de knockback por pacotes; requer Relay e compatibilidade.", ModuleCategory.COMBAT, true, "velocity", engineClass = "ModuleVelocity"),
+        XzeroyModuleDefinition("targets", "Target Filters", "Gerencia filtros de alvos para módulos de combate; requer Relay.", ModuleCategory.COMBAT, true, "targets", engineClass = "ModuleTargets"),
+        XzeroyModuleDefinition("surround", "Surround", "Módulo defensivo ProtoHax; exige itens e servidor compatível.", ModuleCategory.COMBAT, true, "surround", engineClass = "ModuleSurround"),
+        XzeroyModuleDefinition("crystal_aura", "Crystal Aura", "Módulo de combate ProtoHax; requer Relay e servidor compatível.", ModuleCategory.COMBAT, true, "crystal_aura", engineClass = "ModuleCrystalAura"),
+        XzeroyModuleDefinition("auto_jump", "Auto Jump", "Envia toques periódicos na posição configurada para pulo.", ModuleCategory.MOVEMENT, true, "auto_jump",
+            listOf(ModuleSettingDefinition("jump_x", "Coordenada X (%)", 92, 0, 100), ModuleSettingDefinition("jump_y", "Coordenada Y (%)", 55, 0, 100), ModuleSettingDefinition("jump_interval", "Intervalo (ms)", 700, 250, 5000))),
+        XzeroyModuleDefinition("air_jump", "Air Jump", "Módulo de movimento ProtoHax; requer Relay e servidor compatível.", ModuleCategory.MOVEMENT, true, "air_jump", engineClass = "ModuleAirJump"),
+        XzeroyModuleDefinition("block_fly", "Block Fly", "Módulo ProtoHax; requer Relay, itens e servidor compatível.", ModuleCategory.MOVEMENT, true, "block_fly", engineClass = "ModuleBlockFly"),
+        XzeroyModuleDefinition("blink", "Blink", "Módulo de movimento ProtoHax; requer Relay e servidor compatível.", ModuleCategory.MOVEMENT, true, "blink", engineClass = "ModuleBlink"),
+        XzeroyModuleDefinition("clip", "Clip", "Módulo de movimento ProtoHax; depende do servidor.", ModuleCategory.MOVEMENT, true, "clip", engineClass = "ModuleClip"),
+        XzeroyModuleDefinition("fly", "Fly", "Módulo de movimento ProtoHax; o servidor pode rejeitar o movimento.", ModuleCategory.MOVEMENT, true, "fly", engineClass = "ModuleFly"),
+        XzeroyModuleDefinition("no_fall", "No Fall", "Módulo ProtoHax; requer Relay e protocolo compatível.", ModuleCategory.MOVEMENT, true, "no_fall", engineClass = "ModuleNoFall"),
+        XzeroyModuleDefinition("speed", "Speed", "Módulo ProtoHax; requer Relay e servidor compatível.", ModuleCategory.MOVEMENT, true, "speed", engineClass = "ModuleSpeed"),
+        XzeroyModuleDefinition("anti_blind", "Anti Blind", "Módulo visual ProtoHax; requer Relay.", ModuleCategory.VISUAL, true, "anti_blind", engineClass = "ModuleAntiBlind"),
+        XzeroyModuleDefinition("hit_effect", "Hit Effect", "Módulo visual ProtoHax; requer Relay e eventos de combate.", ModuleCategory.VISUAL, true, "hit_effect", engineClass = "ModuleHitEffect"),
+        XzeroyModuleDefinition("no_hurt_camera", "No Hurt Camera", "Módulo visual ProtoHax; requer Relay.", ModuleCategory.VISUAL, true, "no_hurt_camera", engineClass = "ModuleNoHurtCam"),
+        XzeroyModuleDefinition("esp", "ESP", "Renderização de entidades sobre o Minecraft ainda não está integrada.", ModuleCategory.VISUAL, false),
+        XzeroyModuleDefinition("entity_info", "Entity Info", "Camada e renderização de entidades ainda não estão integradas.", ModuleCategory.VISUAL, false),
+        XzeroyModuleDefinition("bgm", "BGM", "Módulo auxiliar ProtoHax; requer Relay.", ModuleCategory.MISC, true, "bgm", engineClass = "ModuleBGM"),
+        XzeroyModuleDefinition("device_spoof", "Device Spoof", "Módulo de dados de dispositivo ProtoHax; não concede permissões.", ModuleCategory.MISC, true, "device_spoof", engineClass = "ModuleDeviceSpoof"),
+        XzeroyModuleDefinition("disabler", "Disabler", "Módulo experimental; pode quebrar a conexão. Use apenas onde permitido.", ModuleCategory.MISC, true, "disabler", engineClass = "ModuleDisabler"),
+        XzeroyModuleDefinition("fast_break", "Fast Break", "Módulo ProtoHax; requer Relay e servidor compatível.", ModuleCategory.MISC, true, "fast_break", engineClass = "ModuleFastBreak"),
+        XzeroyModuleDefinition("inventory_helper", "Inventory Helper", "Módulo ProtoHax; requer Relay e protocolo compatível.", ModuleCategory.MISC, true, "inventory_helper", engineClass = "ModuleInventoryHelper"),
+        XzeroyModuleDefinition("miner", "Miner", "Módulo ProtoHax; requer Relay e servidor compatível.", ModuleCategory.MISC, true, "miner", engineClass = "ModuleMiner"),
+        XzeroyModuleDefinition("no_skin", "No Skin", "Módulo de perfil ProtoHax; requer Relay.", ModuleCategory.MISC, true, "no_skin", engineClass = "ModuleNoSkin"),
+        XzeroyModuleDefinition("op_fight_bot", "OP Fight Bot", "Módulo experimental ProtoHax; requer Relay.", ModuleCategory.MISC, true, "op_fight_bot", engineClass = "ModuleOpFightBot"),
+        XzeroyModuleDefinition("resource_pack", "Resource Pack Spoof", "Módulo ProtoHax; requer Relay.", ModuleCategory.MISC, true, "resource_pack", engineClass = "ModuleResourcePackSpoof"),
+        XzeroyModuleDefinition("spammer", "Spammer", "Mensagens automatizadas; use apenas onde permitido.", ModuleCategory.MISC, true, "spammer", engineClass = "ModuleSpammer"),
+        XzeroyModuleDefinition("world_download", "World Download", "Comando de download ainda não está ligado à interface Android.", ModuleCategory.MISC, false)
     )
-
-    fun forCategory(category: ModuleCategory): List<XzeroyModuleDefinition> =
-        all.filter { it.category == category }
-
+    fun forCategory(category: ModuleCategory): List<XzeroyModuleDefinition> = all.filter { it.category == category }
     fun find(id: String): XzeroyModuleDefinition? = all.firstOrNull { it.id == id }
 }
 
