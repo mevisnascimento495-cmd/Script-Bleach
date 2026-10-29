@@ -30,6 +30,8 @@ class MainActivity : Activity() {
     private lateinit var connectionStatus: TextView
     private var currentTab = "Início"
     private var selectedModuleCategory = ModuleCategory.COMBAT
+    private var moduleSearchQuery = ""
+    private var moduleListContainer: LinearLayout? = null
     private val profileStore by lazy { XzeroyProfileStore(this) }
     private val moduleStore by lazy { XzeroySettingsStore(this) }
     private val relayController by lazy { XzeroyRelayController.get(applicationContext) }
@@ -37,34 +39,35 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(12, 15, 25)
-        window.navigationBarColor = Color.rgb(12, 15, 25)
+        window.statusBarColor = Color.rgb(10, 12, 21)
+        window.navigationBarColor = Color.rgb(10, 12, 21)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(16, 20, 32))
+            setBackgroundColor(Color.rgb(10, 12, 21))
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(22, 22, 22, 18)
-            setBackgroundColor(Color.rgb(22, 29, 48))
+            background = uiPanel(Color.rgb(19, 24, 40), Color.rgb(53, 61, 88))
         }
         header.addView(TextView(this).apply {
             text = "XZEROY"
             textSize = 27f
-            setTextColor(Color.rgb(130, 165, 255))
+            setTextColor(Color.rgb(176, 160, 255))
             gravity = Gravity.CENTER_VERTICAL
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
         header.addView(TextView(this).apply {
-            text = "BEDROCK CLIENT • BETA"
+            text = "BEDROCK CLIENT  •  ANDROID BETA"
             textSize = 11f
             setTextColor(Color.LTGRAY)
             setPadding(0, 3, 0, 0)
         })
         connectionStatus = TextView(this).apply {
             textSize = 13f
-            setTextColor(Color.rgb(255, 211, 128))
-            setPadding(0, 12, 0, 0)
+            setTextColor(Color.rgb(193, 184, 255))
+            setPadding(10, 10, 10, 10)
+            background = uiPanel(Color.rgb(31, 34, 58), Color.rgb(75, 67, 121))
         }
         header.addView(connectionStatus)
         root.addView(header)
@@ -80,18 +83,25 @@ class MainActivity : Activity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(4, 7, 4, 7)
-            setBackgroundColor(Color.rgb(22, 29, 48))
+            background = uiPanel(Color.rgb(18, 23, 38), Color.rgb(44, 51, 72))
         }
         listOf("Início", "Módulos", "Relay", "Conta", "Ajustes").forEach { tab ->
             nav.addView(Button(this).apply {
                 text = tab
-                textSize = 11f
+                textSize = 10f
                 isAllCaps = false
+                setTextColor(if (currentTab == tab) Color.WHITE else Color.rgb(175, 183, 205))
+                background = uiPanel(
+                    if (currentTab == tab) Color.rgb(76, 61, 156) else Color.rgb(24, 29, 46),
+                    if (currentTab == tab) Color.rgb(150, 129, 255) else Color.rgb(43, 50, 72)
+                )
                 setOnClickListener {
                     currentTab = tab
                     renderTab()
                 }
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(2, 0, 2, 0)
+            })
         }
         root.addView(nav)
         setContentView(root)
@@ -159,22 +169,36 @@ class MainActivity : Activity() {
                 )
                 card(
                     "Limites desta versão",
-                    "O motor de relay de pacotes Bedrock, leitura real de entidades, alcance e integração Xbox/Minecraft ainda não estão conectados. Os módulos não implementados ficam desativados e identificados como pendentes."
+                    "O relay e a engine ProtoHax estão integrados, mas exigem protocolo Bedrock compatível e não fornecem autenticação Xbox/Minecraft. Renderização ESP e leitura visual de entidades continuam pendentes."
                 )
             }
 
             "Módulos" -> {
-                title("Módulos")
+                title("Client")
                 body.addView(TextView(this).apply {
-                    text = "Categorias de módulos"
-                    textSize = 12f
-                    setTextColor(Color.LTGRAY)
-                    setPadding(2, 0, 0, 8)
+                    text = "MÓDULOS  /  CONFIGURAÇÃO"
+                    textSize = 10f
+                    setTextColor(Color.rgb(160, 149, 235))
+                    setPadding(3, 0, 0, 8)
                 })
-                renderCategorySelector()
-                XzeroyModuleRegistry.forCategory(selectedModuleCategory).forEach { module ->
-                    renderModuleCard(module)
+                val search = textField("Buscar módulo...", moduleSearchQuery).apply {
+                    textSize = 14f
+                    background = uiPanel(Color.rgb(20, 25, 41), Color.rgb(58, 65, 91))
+                    setPadding(14, 10, 14, 10)
+                    addTextChangedListener(object : android.text.TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                            moduleSearchQuery = s?.toString().orEmpty()
+                            renderModuleList()
+                        }
+                        override fun afterTextChanged(s: android.text.Editable?) = Unit
+                    })
                 }
+                body.addView(search, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 10 })
+                renderCategorySelector()
+                moduleListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                body.addView(moduleListContainer, LinearLayout.LayoutParams(-1, -2))
+                renderModuleList()
             }
 
             "Relay" -> renderRelayTab()
@@ -282,6 +306,11 @@ class MainActivity : Activity() {
                 text = category.label
                 textSize = 10f
                 isAllCaps = false
+                setTextColor(if (selectedModuleCategory == category) Color.WHITE else Color.rgb(174, 182, 206))
+                background = uiPanel(
+                    if (selectedModuleCategory == category) Color.rgb(76, 61, 156) else Color.rgb(22, 27, 43),
+                    if (selectedModuleCategory == category) Color.rgb(150, 129, 255) else Color.rgb(44, 51, 73)
+                )
                 setOnClickListener {
                     selectedModuleCategory = category
                     renderTab()
@@ -293,57 +322,167 @@ class MainActivity : Activity() {
         body.addView(row, LinearLayout.LayoutParams(-1, -2))
     }
 
-    private fun renderModuleCard(module: XzeroyModuleDefinition) {
-        val status = if (module.implemented) {
-            if (module.enabledPreference?.let { prefs.getBoolean(it, false) } == true) " • LIGADO" else " • DESLIGADO"
-        } else {
-            " • EM DESENVOLVIMENTO"
+    private fun renderModuleList() {
+        val container = moduleListContainer ?: return
+        container.removeAllViews()
+        val query = moduleSearchQuery.trim().lowercase()
+        val modules = XzeroyModuleRegistry.forCategory(selectedModuleCategory).filter {
+            query.isBlank() || it.name.lowercase().contains(query) || it.description.lowercase().contains(query)
         }
-        val relayRequired = module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING
-        val description = when {
-            !module.implemented -> module.description + "\nEste módulo não executa ações nesta versão."
-            relayRequired -> module.description + "\nAtive o Relay para enviar eventos ao motor de jogo."
-            else -> module.description
+        val active = modules.count { moduleStore.isEnabled(it) }
+        container.addView(TextView(this).apply {
+            text = "\${active} ATIVOS  •  \${modules.size} MÓDULOS"
+            textSize = 10f
+            setTextColor(Color.rgb(155, 149, 195))
+            setPadding(3, 1, 0, 8)
+        })
+        if (modules.isEmpty()) {
+            container.addView(TextView(this).apply {
+                text = "Nenhum módulo encontrado nesta categoria."
+                textSize = 13f
+                setTextColor(Color.LTGRAY)
+                setPadding(6, 15, 6, 20)
+            })
+            return
         }
-        card(module.name + status, description) {
-            val enabledKey = module.enabledPreference
-            if (!module.implemented || enabledKey == null) {
-                actionButton("Indisponível nesta versão") {
-                    message("Este módulo ainda não está implementado. O XZeroy não vai simular uma função que não existe.")
-                }
-                return@card
-            }
+        modules.forEach { renderModuleCard(it) }
+    }
 
-            val settingFields = linkedMapOf<String, EditText>()
-            module.settings.forEach { setting ->
-                val input = field(
-                    setting.label + " (" + setting.minValue + "–" + setting.maxValue + ")",
-                    prefs.getInt(setting.key, setting.defaultValue)
-                )
-                addView(input)
-                settingFields[setting.key] = input
-            }
-            if (module.engineClass != null) {
-                actionButton("Configurar valores da engine") {
-                    showEngineModuleSettings(module)
-                }
-            }
-            if (settingFields.isNotEmpty()) {
-                actionButton("Salvar configurações") {
-                    moduleStore.saveSettings(module, settingFields.mapValues { (key, input) ->
-                        val definition = module.settings.first { it.key == key }
-                        number(input, definition.defaultValue, definition.minValue, definition.maxValue)
-                    })
-                    message("Configurações de " + module.name + " salvas.")
-                }
-            }
-            actionButton(
-                (if (prefs.getBoolean(enabledKey, false)) "Desativar " else "Ativar ") + module.name
-            ) {
-                moduleStore.toggle(module)
-                renderTab()
-            }
+    private fun renderModuleCard(module: XzeroyModuleDefinition) {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14, 12, 14, 12)
+            background = uiPanel(Color.rgb(18, 23, 38), Color.rgb(48, 56, 79))
+            elevation = 2f
         }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val titleColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleColumn.addView(TextView(this).apply {
+            text = module.name
+            textSize = 15f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.WHITE)
+        })
+        val relayWaiting = module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING
+        val stateLabel = TextView(this).apply {
+            text = when {
+                !module.implemented -> "EM DESENVOLVIMENTO"
+                module.enabledPreference != null && moduleStore.isEnabled(module) && relayWaiting -> "ATIVO • AGUARDANDO RELAY"
+                module.enabledPreference != null && moduleStore.isEnabled(module) -> "ATIVO"
+                else -> "DESATIVADO"
+            }
+            textSize = 9f
+            setTextColor(when {
+                !module.implemented -> Color.rgb(230, 174, 112)
+                moduleStore.isEnabled(module) -> Color.rgb(102, 222, 169)
+                else -> Color.rgb(147, 157, 182)
+            })
+            setPadding(0, 4, 0, 0)
+        }
+        titleColumn.addView(stateLabel)
+        top.addView(titleColumn, LinearLayout.LayoutParams(0, -2, 1f))
+
+        if (module.implemented && module.enabledPreference != null) {
+            top.addView(android.widget.Switch(this).apply {
+                isChecked = moduleStore.isEnabled(module)
+                text = ""
+                setOnCheckedChangeListener { _, enabled ->
+                    moduleStore.setEnabled(module, enabled)
+                    stateLabel.text = when {
+                        enabled && module.engineClass != null && relayController.snapshot().status != RelayStatus.RUNNING -> "ATIVO • AGUARDANDO RELAY"
+                        enabled -> "ATIVO"
+                        else -> "DESATIVADO"
+                    }
+                    stateLabel.setTextColor(if (enabled) Color.rgb(102, 222, 169) else Color.rgb(147, 157, 182))
+                }
+            })
+        } else {
+            top.addView(TextView(this).apply {
+                text = "—"
+                textSize = 14f
+                setTextColor(Color.GRAY)
+                setPadding(8, 0, 0, 0)
+            })
+        }
+        panel.addView(top)
+
+        panel.addView(TextView(this).apply {
+            val relayHint = if (module.engineClass != null && relayWaiting) {
+                "\n\nEste módulo depende do Relay e de uma sessão Bedrock compatível."
+            } else ""
+            text = module.description + relayHint
+            textSize = 12f
+            setTextColor(Color.rgb(174, 183, 204))
+            setPadding(0, 8, 0, 9)
+        })
+
+        val hasSettings = module.settings.isNotEmpty() || module.engineClass != null
+        if (hasSettings) {
+            panel.addView(Button(this).apply {
+                text = "⚙  Configurar opções"
+                textSize = 11f
+                isAllCaps = false
+                setTextColor(Color.rgb(204, 196, 255))
+                background = uiPanel(Color.rgb(38, 34, 63), Color.rgb(84, 72, 134))
+                setOnClickListener {
+                    if (module.engineClass != null) showEngineModuleSettings(module)
+                    else showSimpleModuleSettings(module)
+                }
+            }, LinearLayout.LayoutParams(-1, -2))
+        } else if (!module.implemented) {
+            panel.addView(TextView(this).apply {
+                text = "Ainda não disponível nesta versão"
+                textSize = 10f
+                setTextColor(Color.rgb(219, 171, 116))
+            })
+        }
+        moduleListContainer?.addView(panel, LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = 9
+        })
+    }
+
+    private fun showSimpleModuleSettings(module: XzeroyModuleDefinition) {
+        if (module.settings.isEmpty()) {
+            message("Este módulo não tem opções editáveis.")
+            return
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 8, 20, 8)
+        }
+        val fields = linkedMapOf<String, EditText>()
+        module.settings.forEach { setting ->
+            content.addView(TextView(this).apply {
+                text = "\${setting.label}  •  \${setting.minValue}–\${setting.maxValue}"
+                textSize = 12f
+                setTextColor(Color.LTGRAY)
+                setPadding(0, 8, 0, 2)
+            })
+            fields[setting.key] = EditText(this).apply {
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_NUMBER
+                setText(prefs.getInt(setting.key, setting.defaultValue).toString())
+                setTextColor(Color.WHITE)
+                setHintTextColor(Color.GRAY)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(133, 113, 255))
+            }.also { content.addView(it) }
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Configurar • \${module.name}")
+            .setView(content)
+            .setNegativeButton("Cancelar", null)
+            .setNeutralButton("Desativar") { _, _ -> moduleStore.setEnabled(module, false) }
+            .setPositiveButton("Salvar") { _, _ ->
+                moduleStore.saveSettings(module, fields.mapValues { (key, input) ->
+                    val spec = module.settings.first { it.key == key }
+                    (input.text.toString().toIntOrNull() ?: spec.defaultValue).coerceIn(spec.minValue, spec.maxValue)
+                })
+                message("Configurações de \${module.name} salvas.")
+            }
+            .show()
     }
 
     private fun showEngineModuleSettings(module: XzeroyModuleDefinition) {
@@ -586,7 +725,8 @@ class MainActivity : Activity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 14, 16, 14)
-            setBackgroundColor(Color.rgb(27, 35, 54))
+            background = uiPanel(Color.rgb(18, 23, 38), Color.rgb(48, 56, 79))
+            elevation = 2f
         }
         panel.addView(TextView(this).apply {
             text = name
@@ -609,10 +749,19 @@ class MainActivity : Activity() {
         addView(Button(this@MainActivity).apply {
             text = label
             isAllCaps = false
+            textSize = 12f
+            setTextColor(Color.rgb(213, 207, 255))
+            background = uiPanel(Color.rgb(37, 34, 60), Color.rgb(79, 69, 126))
             setOnClickListener { action() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = 5
         })
+    }
+
+    private fun uiPanel(fill: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
+        setColor(fill)
+        cornerRadius = 18f
+        setStroke(1, stroke)
     }
 
     private fun field(label: String, value: Int) = EditText(this).apply {
