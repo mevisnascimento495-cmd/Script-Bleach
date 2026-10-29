@@ -97,6 +97,15 @@ class MainActivity : Activity() {
                 )
                 setOnClickListener {
                     currentTab = tab
+                    for (index in 0 until nav.childCount) {
+                        val item = nav.getChildAt(index) as? Button ?: continue
+                        val selected = item.text.toString() == currentTab
+                        item.setTextColor(if (selected) Color.WHITE else Color.rgb(175, 183, 205))
+                        item.background = uiPanel(
+                            if (selected) Color.rgb(76, 61, 156) else Color.rgb(24, 29, 46),
+                            if (selected) Color.rgb(150, 129, 255) else Color.rgb(43, 50, 72)
+                        )
+                    }
                     renderTab()
                 }
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -196,8 +205,9 @@ class MainActivity : Activity() {
                 }
                 body.addView(search, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 10 })
                 renderCategorySelector()
-                moduleListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-                body.addView(moduleListContainer, LinearLayout.LayoutParams(-1, -2))
+                val moduleList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                moduleListContainer = moduleList
+                body.addView(moduleList, LinearLayout.LayoutParams(-1, -2))
                 renderModuleList()
             }
 
@@ -331,7 +341,7 @@ class MainActivity : Activity() {
         }
         val active = modules.count { moduleStore.isEnabled(it) }
         container.addView(TextView(this).apply {
-            text = "\${active} ATIVOS  •  \${modules.size} MÓDULOS"
+            text = "${active} ATIVOS  •  ${modules.size} MÓDULOS"
             textSize = 10f
             setTextColor(Color.rgb(155, 149, 195))
             setPadding(3, 1, 0, 8)
@@ -456,7 +466,7 @@ class MainActivity : Activity() {
         val fields = linkedMapOf<String, EditText>()
         module.settings.forEach { setting ->
             content.addView(TextView(this).apply {
-                text = "\${setting.label}  •  \${setting.minValue}–\${setting.maxValue}"
+                text = "${setting.label}  •  ${setting.minValue}–${setting.maxValue}"
                 textSize = 12f
                 setTextColor(Color.LTGRAY)
                 setPadding(0, 8, 0, 2)
@@ -471,7 +481,7 @@ class MainActivity : Activity() {
             }.also { content.addView(it) }
         }
         AlertDialog.Builder(this)
-            .setTitle("Configurar • \${module.name}")
+            .setTitle("Configurar • ${module.name}")
             .setView(content)
             .setNegativeButton("Cancelar", null)
             .setNeutralButton("Desativar") { _, _ -> moduleStore.setEnabled(module, false) }
@@ -480,7 +490,7 @@ class MainActivity : Activity() {
                     val spec = module.settings.first { it.key == key }
                     (input.text.toString().toIntOrNull() ?: spec.defaultValue).coerceIn(spec.minValue, spec.maxValue)
                 })
-                message("Configurações de \${module.name} salvas.")
+                message("Configurações de ${module.name} salvas.")
             }
             .show()
     }
