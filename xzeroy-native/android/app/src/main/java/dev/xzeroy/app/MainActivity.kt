@@ -199,60 +199,36 @@ class MainActivity : Activity() {
 
             "Conta" -> {
                 title("Conta Microsoft")
-                val signedIn = prefs.getBoolean("ms_signed_in", false)
-                if (signedIn) {
-                    val accountName = prefs.getString("ms_display_name", "Conta Microsoft").orEmpty()
-                    val accountUser = prefs.getString("ms_username", "").orEmpty()
-                    card(
-                        "Conta vinculada",
-                        "Nome: " + accountName + "\nConta: " + accountUser +
-                            "\n\nPerfil Microsoft autenticado. Isto ainda não representa uma sessão Xbox/Minecraft nem verifica a propriedade do jogo."
-                    ) {
-                        actionButton("Desvincular perfil deste app") {
-                            prefs.edit()
-                                .remove("ms_signed_in")
-                                .remove("ms_display_name")
-                                .remove("ms_username")
-                                .remove("ms_user_id")
-                                .apply()
+                if (prefs.getBoolean("ms_signed_in", false)) {
+                    card("Conta conectada",
+                        "Nome: " + prefs.getString("ms_display_name", "Conta Microsoft") +
+                            "\nConta: " + prefs.getString("ms_username", "") +
+                            "\n\nO perfil Microsoft foi conectado. A sessão Xbox/Minecraft exige integração adicional.") {
+                        actionButton("Desconectar conta") {
+                            prefs.edit().remove("ms_signed_in").remove("ms_display_name")
+                                .remove("ms_username").remove("ms_user_id").apply()
                             renderTab()
                         }
                     }
                 } else {
-                    card(
-                        "Entrar com Microsoft",
-                        "O login usa a página oficial da Microsoft e um código de dispositivo. Não digite sua senha dentro do XZeroy. Para ativar o fluxo, é necessário um Client ID de aplicativo registrado para contas pessoais Microsoft e configurado como cliente público/device code."
-                    ) {
-                        val clientIdField = textField(
-                            "Microsoft App Client ID",
-                            prefs.getString("ms_client_id", "").orEmpty()
-                        )
-                        addView(clientIdField)
-                        actionButton("Salvar Client ID") {
-                            val value = clientIdField.text.toString().trim()
-                            if (!isGuid(value)) {
-                                message("Cole um Client ID válido no formato GUID.")
+                    card("Entrar com Microsoft",
+                        "Conecte sua conta pela página oficial da Microsoft. Você não precisa digitar ID nem senha dentro do XZeroy.") {
+                        actionButton("Entrar com Microsoft") {
+                            val clientId = BuildConfig.MICROSOFT_CLIENT_ID.trim()
+                            if (!isGuid(clientId)) {
+                                message("O login ainda não foi configurado pelo desenvolvedor. Você não precisa informar nenhum ID; essa configuração deve vir no aplicativo.")
                             } else {
-                                prefs.edit().putString("ms_client_id", value).apply()
-                                message("Client ID salvo neste aparelho.")
-                            }
-                        }
-                        actionButton("Iniciar login Microsoft") {
-                            val value = clientIdField.text.toString().trim()
-                                .ifBlank { prefs.getString("ms_client_id", "").orEmpty() }
-                            if (!isGuid(value)) {
-                                message("Primeiro informe e salve o Client ID do aplicativo Microsoft.")
-                            } else {
-                                prefs.edit().putString("ms_client_id", value).apply()
-                                startMicrosoftSignIn(value)
+                                startMicrosoftSignIn(clientId)
                             }
                         }
                     }
+                    card("Status",
+                        if (BuildConfig.MICROSOFT_CLIENT_ID.isBlank())
+                            "O campo de ID foi removido. Para que o botão autentique de verdade, o desenvolvedor precisa configurar o registro oficial do XZeroy antes de gerar o APK."
+                        else "O login usa a página oficial da Microsoft e consulta o perfil básico.")
                 }
-                card(
-                    "O que este login faz",
-                    "Ele autentica a conta Microsoft e lê o perfil básico pelo Microsoft Graph. A etapa Xbox Live/XSTS e a autenticação específica dos serviços Minecraft ainda precisam de integração separada. Nenhuma senha ou token é salvo pelo XZeroy."
-                )
+                card("Importante",
+                    "O perfil Microsoft não equivale a uma sessão Xbox Live/XSTS nem confirma acesso ao Minecraft. Essa integração é uma etapa separada.")
             }
 
             "Ajustes" -> {
@@ -266,7 +242,7 @@ class MainActivity : Activity() {
                         renderTab()
                     }
                 }
-                card("Sobre", "XZeroy Android • versão 0.3.0 beta\nBuild de desenvolvimento")
+                card("Sobre", "XZeroy Android • versão 0.4.0 beta\nBuild de desenvolvimento")
             }
         }
     }
