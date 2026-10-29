@@ -7,3 +7,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "XZeroyNative"
 include(":app")
+
+// Build the GPL-licensed Bedrock relay as a separate composite build.
+includeBuild("../engine/protohax")

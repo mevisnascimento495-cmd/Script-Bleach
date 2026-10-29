@@ -25,3 +25,9 @@ android {
         buildConfigField("String", "MICROSOFT_CLIENT_ID", "\"${microsoftClientId}\"")
     }
 }
+
+
+dependencies {
+    // ProtoHax is separately maintained under GPL-3.0-or-later; see XZeroy native notices.
+    implementation("dev.sora.relay:ProtoHax:1.4.0")
+}

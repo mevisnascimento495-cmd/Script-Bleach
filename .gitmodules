@@ -1,0 +1,3 @@
+[submodule "xzeroy-native/engine/protohax"]
+	path = xzeroy-native/engine/protohax
+	url = https://github.com/hax0r31337/ProtoHax.git
