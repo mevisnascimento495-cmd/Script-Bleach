@@ -180,33 +180,45 @@ class XzeroyAccessibilityService : AccessibilityService() {
         })
 
         val categories = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        ModuleCategory.values().forEach { moduleCategory ->
-            val category = moduleCategory.label
+        (ModuleCategory.values().map { it.label } + "Settings").forEach { category ->
             categories.addView(TextView(this).apply {
                 text = category
-                textSize = 10f
+                textSize = 9f
                 gravity = Gravity.CENTER
                 setTextColor(if (category == selectedCategory) Color.WHITE else Color.LTGRAY)
-                setPadding(5, 10, 5, 10)
+                setPadding(4, 10, 4, 10)
                 background = rounded(
                     if (category == selectedCategory) Color.rgb(48, 68, 116) else Color.rgb(28, 35, 52),
                     if (category == selectedCategory) Color.rgb(100, 137, 230) else Color.rgb(45, 52, 72)
                 )
                 setOnClickListener { selectedCategory = category; hideMenu(); showMenu() }
-            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(2, 0, 2, 8) })
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(1, 0, 1, 8) })
         }
         root.addView(categories)
 
         val scroll = ScrollView(this)
         val items = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(items)
-        val category = ModuleCategory.values().firstOrNull { it.label == selectedCategory } ?: ModuleCategory.COMBAT
-        section(items, category.label.uppercase())
-        XzeroyModuleRegistry.forCategory(category).forEach { module ->
-            if (module.implemented && module.enabledPreference != null) {
-                moduleToggle(items, module.name, module.enabledPreference, module.description)
-            } else {
-                disabledModule(items, module.name, module.description)
+        if (selectedCategory == "Settings") {
+            section(items, "CONFIGURAÇÕES")
+            moduleAction(items, "Abrir Acessibilidade") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            moduleAction(items, "Desligar todos os módulos") {
+                XzeroySettingsStore(this).disableAll()
+                hideMenu()
+                showMenu()
+            }
+            moduleAction(items, "Fechar menu") { hideMenu() }
+        } else {
+            val category = ModuleCategory.values().firstOrNull { it.label == selectedCategory } ?: ModuleCategory.COMBAT
+            section(items, category.label.uppercase())
+            XzeroyModuleRegistry.forCategory(category).forEach { module ->
+                if (module.implemented && module.enabledPreference != null) {
+                    moduleToggle(items, module.name, module.enabledPreference, module.description)
+                } else {
+                    disabledModule(items, module.name, module.description)
+                }
             }
         }
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
