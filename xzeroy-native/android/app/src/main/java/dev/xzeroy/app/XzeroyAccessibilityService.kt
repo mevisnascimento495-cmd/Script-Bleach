@@ -1,5 +1,7 @@
 package dev.xzeroy.app
 
+import android.app.AlertDialog
+
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
