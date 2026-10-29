@@ -497,7 +497,7 @@ class XzeroyAccessibilityService : AccessibilityService() {
         }
         val scroll = ScrollView(this).apply { addView(content) }
         AlertDialog.Builder(this)
-            .setTitle("Configurar • ${module.name")
+            .setTitle("Configurar • ${module.name}")
             .setView(scroll)
             .setNegativeButton("Cancelar", null)
             .setNeutralButton("Restaurar padrões") { _, _ ->
