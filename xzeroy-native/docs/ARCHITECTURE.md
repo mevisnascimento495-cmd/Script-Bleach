@@ -11,7 +11,7 @@
 - **XzeroyModuleSystem.kt** — registro central por categorias, preferências, perfis e eventos de estado.
 - **XzeroyAccessibilityService** — sobreposição Android de gestos; Auto Clicker e Auto Jump usam Acessibilidade.
 - **XzeroyRelayController.kt** — inicia/encerra o relay UDP, instala listeners de protocolo/sessão e aplica estados dos módulos.
-- **engine/protohax** — submódulo Git no commit `afef78c3883ee53fad180ceb6acfae02cf1a302a`; build Gradle separado com licença upstream.
+- **engine/protohax** — submódulo Git no commit `afef78c3883ee53fad180ceb6acfae02cf1a302a`, preservado para referência/licença. O app usa o artefato sombreado publicado `dev.sora.relay:ProtoHax:1.4.0` via Maven; não recompila a árvore antiga com dependências indisponíveis.
 - **server-bridge** — contrato HTTP separado; não concede permissões administrativas.
 
 ## Funcionalidade integrada
@@ -27,7 +27,7 @@
 - **Autenticação:** o listener cria identidade offline, não faz Xbox Live/XSTS/Minecraft. Servidores autenticados podem recusar a sessão. O login Microsoft da aba Conta consulta o perfil Graph e não fornece a cadeia Xbox/Minecraft.
 - **Compatibilidade:** o ProtoHax pinado tem codecs antigos. Build bem-sucedido não prova conexão com a versão atual do Bedrock nem funcionamento em aparelho.
 - **Renderização:** ESP e informação visual de entidades não estão integrados ao renderizador do Minecraft.
-- **Valores internos:** os módulos usam valores padrão do ProtoHax; editor genérico de `Value<T>` ainda não foi ligado à UI.
+- **Valores internos:** a UI edita valores expostos pelo `visibleValues` da engine, valida limites básicos, salva JSON e inclui os dados nos perfis. Tipos menos comuns ainda precisam de teste em dispositivo.
 - **Ciclo de vida:** upstream não expõe fecho explícito de todos os executores da sessão. Testes de start/stop/reconexão são necessários antes de uso prolongado.
 
 ## Licença

@@ -6,10 +6,11 @@ The ProtoHax engine is included as a Git submodule at `protohax/`, pinned to
 Upstream project: https://github.com/hax0r31337/ProtoHax
 
 The engine is licensed under GNU GPL version 3 or later. Its source and license
-are kept in the submodule. The XZeroy Android app links against the engine as a
-separate Gradle composite build; the upstream source is not copied into the
-XZeroy files. Review `../LICENSE-GPL-3.0.txt` and the upstream `LICENSE` before
-redistributing an APK that combines the application and engine.
+are kept in the submodule. The XZeroy Android app uses the published shaded
+`dev.sora.relay:ProtoHax:1.4.0` artifact from the package repository. The source
+submodule is retained for audit and license compliance, not built as a composite
+project. Review `../LICENSE-GPL-3.0.txt` and the upstream `LICENSE` before
+redistributing a combined APK.
 
 Important: the upstream relay's offline login listener does not provide Xbox
 Live/XSTS/Minecraft authentication for authenticated public servers. Protocol
