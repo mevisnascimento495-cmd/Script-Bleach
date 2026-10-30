@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Permite ao XZeroy enviar toques configurados apenas quando Minecraft Bedrock está em primeiro plano. O serviço mostra um controle flutuante e exige ativação manual pelo usuário.</string>
+</resources>
