@@ -214,12 +214,12 @@ class MainActivity : Activity() {
             "Relay" -> renderRelayTab()
 
             "Conta" -> {
-                title("Conta Microsoft")
+                title("Conta")
                 if (prefs.getBoolean("ms_signed_in", false)) {
-                    card("Conta conectada",
+                    card("Perfil Microsoft conectado",
                         "Nome: " + prefs.getString("ms_display_name", "Conta Microsoft") +
                             "\nConta: " + prefs.getString("ms_username", "") +
-                            "\n\nO perfil Microsoft foi conectado. A sessão Xbox/Minecraft exige integração adicional.") {
+                            "\n\nEste é apenas o perfil Microsoft; não representa uma sessão Xbox/Minecraft.") {
                         actionButton("Desconectar conta") {
                             prefs.edit().remove("ms_signed_in").remove("ms_display_name")
                                 .remove("ms_username").remove("ms_user_id").apply()
@@ -227,24 +227,21 @@ class MainActivity : Activity() {
                         }
                     }
                 } else {
-                    card("Entrar com Microsoft",
-                        "Conecte sua conta pela página oficial da Microsoft. Você não precisa digitar ID nem senha dentro do XZeroy.") {
-                        actionButton("Entrar com Microsoft") {
-                            val clientId = BuildConfig.MICROSOFT_CLIENT_ID.trim()
-                            if (!isGuid(clientId)) {
-                                message("O login ainda não foi configurado pelo desenvolvedor. Você não precisa informar nenhum ID; essa configuração deve vir no aplicativo.")
-                            } else {
-                                startMicrosoftSignIn(clientId)
-                            }
+                    card("Login Microsoft indisponível nesta versão",
+                        "O login ainda não pode começar porque o XZeroy não tem um registro OAuth próprio configurado. Não use IDs de outros aplicativos: isso pode falhar ou identificar o aplicativo errado.") {
+                        actionButton("Ver instruções de configuração") {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Configurar login Microsoft")
+                                .setMessage("Para ativar o login, é necessário um Application (client) ID de um aplicativo registrado e configurado para contas pessoais Microsoft e fluxo de cliente público. Este registro não pode ser criado automaticamente pelo APK. Enquanto isso, você pode usar as funções locais do XZeroy sem conectar uma conta.")
+                                .setPositiveButton("Entendi", null)
+                                .show()
                         }
                     }
-                    card("Status",
-                        if (BuildConfig.MICROSOFT_CLIENT_ID.isBlank())
-                            "O campo de ID foi removido. Para que o botão autentique de verdade, o desenvolvedor precisa configurar o registro oficial do XZeroy antes de gerar o APK."
-                        else "O login usa a página oficial da Microsoft e consulta o perfil básico.")
+                    card("O que funciona sem login",
+                        "Você pode continuar usando a interface, configurar módulos e salvar perfis locais. Recursos que exigem uma sessão oficial do Xbox/Minecraft não devem ser considerados conectados.")
                 }
-                card("Importante",
-                    "O perfil Microsoft não equivale a uma sessão Xbox Live/XSTS nem confirma acesso ao Minecraft. Essa integração é uma etapa separada.")
+                card("Autenticação do Minecraft",
+                    "Entrar na conta Microsoft, obter uma sessão Xbox Live/XSTS e validar o acesso ao Minecraft são etapas diferentes. O XZeroy ainda precisa implementar e testar a cadeia completa antes de afirmar que a autenticação Minecraft funciona.")
             }
 
             "Ajustes" -> {
